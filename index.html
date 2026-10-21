@@ -221,7 +221,7 @@ const tokenOk=e=>TOK[e]&&Date.now()<TOK[e].exp-60000;
 function initGIS(){const id=state.settings.clientId;if(!id||!window.google)return;
  tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly',callback:()=>{}})}
 function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':syncFail?'Drive is not responding. Using the local copy; retrying…':'Drive: connected'):'Not signed in';
- const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
+ const el=$('#sync');if(el)el.title='Build '+BUILD;if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
 function drawAccts(){const el=$('#accts');if(el)el.innerHTML='<div class="mute" style="font-size:12px;padding:0 8px"><b>Accounts</b>'+accts().map(a=>`<div>${esc(a.email)}${a.primary?' ★':''}</div>`).join('')+'</div>'}
 function requestToken(hint,select){return new Promise((res,rej)=>{
  if(!tokenClient)initGIS();
@@ -283,11 +283,28 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};signedIn=false;location.hash='';render()}
+const BUILD='2026-10-21.5';
+async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
+ const out=[];let tok;
+ try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
+ const raw=async u=>{const r=await fetch(u,{headers:{Authorization:'Bearer '+tok}});const t=await r.text();if(!r.ok)throw new Error(r.status+' '+errMsg(t));return t};
+ const step=async(name,fn)=>{const t0=Date.now();try{out.push({name,ok:1,ms:Date.now()-t0,info:await fn()||''})}catch(e){out.push({name,ok:0,ms:Date.now()-t0,info:errMsg(e)})}};
+ const D='https://www.googleapis.com/drive/v3/';
+ await step('Account and storage',async()=>{const j=JSON.parse(await raw(D+'about?fields=user(emailAddress),storageQuota'));const q=j.storageQuota||{};return j.user.emailAddress+(q.limit?` · ${Math.round(q.usage/1e6)} MB of ${Math.round(q.limit/1e6)} MB used`:'')});
+ await step('List files',async()=>{const j=JSON.parse(await raw(D+'files?pageSize=1&fields=files(id)'));return j.files.length+' found'});
+ let root='';await step('Find WriteFlow folder',async()=>{const j=JSON.parse(await raw(D+'files?fields=files(id,name)&q='+encodeURIComponent("name='WriteFlow' and mimeType='application/vnd.google-apps.folder' and trashed=false")));root=(j.files[0]||{}).id||'';return root?'found':'not found'});
+ let fid='';if(root)await step('Find data file',async()=>{const j=JSON.parse(await raw(D+'files?fields=files(id,size)&q='+encodeURIComponent(`name='writeflow-data.json' and '${root}' in parents and trashed=false`)));fid=(j.files[0]||{}).id||'';return fid?'found, '+Math.round((j.files[0].size||0)/1024)+' KB':'not found'});
+ if(fid)await step('Read data file',async()=>{const t=await raw(D+'files/'+fid+'?alt=media');return Math.round(t.length/1024)+' KB read'});
+ const bad=out.filter(x=>!x.ok).length;
+ const rep=out.map(x=>`${x.ok?'OK  ':'FAIL'} ${x.name}: ${x.info} (${x.ms} ms)`).join('\n')+`\nBuild ${BUILD}`;window.__diag=rep;
+ dlgShow(`<h3 style="margin-top:0">${bad?'Drive returned errors':'Drive is working'}</h3>${out.map(x=>`<div class="item" style="cursor:default"><span class="chip ${x.ok?'ok':'bad'}">${x.ok?'OK':'Failed'}</span><span class="sp"><b>${esc(x.name)}</b><br><span class="mute sm2">${esc(x.info)}</span></span><span class="mute sm2">${x.ms} ms</span></div>`).join('')}
+ <p class="mute sm2">${bad?'If every step fails with 500 or Internal Error, the problem is on Google\'s side. Check the Google Workspace Status Dashboard and try again later.':'Sign-in should now work.'} Build ${BUILD}.</p>
+ <div class="row"><button class="sm" data-a="copyDiag">Copy report</button><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
 function loginView(){const has=!!state.settings.clientId;
  return`<div style="max-width:420px;margin:12vh auto"><div class="card" style="padding:24px;text-align:center"><div class="brand" style="justify-content:center;margin:0 0 12px"><i>W</i>WriteFlow</div><p class="mute">Sign in with Google to load your writings from Drive.</p>
- ${has?`<button class="pri" data-a="login" style="width:100%;padding:10px">Sign in with Google</button>${state.projects.length?'<button data-a="goOffline" style="width:100%;margin-top:8px">Open offline copy</button>':''}${primary()?`<p class="mute">Primary account: ${esc(primary())}</p>`:''}`
+ ${has?`<button class="pri" data-a="login" style="width:100%;padding:10px">Sign in with Google</button>${state.projects.length?'<button data-a="goOffline" style="width:100%;margin-top:8px">Open offline copy</button>':''}${primary()?`<p class="mute">Primary account: ${esc(primary())}</p>`:''}<button class="sm" data-a="diag">Test Drive connection</button>`
  :`<div style="text-align:left"><label class="mute">Google OAuth Client ID</label><input id="cid" placeholder="xxxx.apps.googleusercontent.com"><button class="pri" data-a="saveClient" style="margin-top:8px;width:100%">Save and continue</button><p class="mute"><a target="_blank" rel="noopener" href="https://github.com/michaelouru-sw/writeflow#2-connect-google-drive-one-time-free">How to get one</a></p></div>`}
- <p class="mute" style="font-size:12px;margin-bottom:0">Your data lives in your Drive. This browser keeps only a cache until you sign out.</p></div></div>`}
+ <p class="mute" style="font-size:12px;margin-bottom:0">Your data lives in your Drive. This browser keeps only a cache until you sign out.</p><p class="mute" style="font-size:11px;margin:6px 0 0">Build ${BUILD}</p></div></div>`}
 
 /* ---------- Dialog form helper ---------- */
 function openForm(title,fields,vals,cb,extra){
@@ -547,6 +564,7 @@ const A={
   if(p.draft&&!confirm('Replace the current draft?'))return;p.draft={at:Date.now(),sections:secs,opts:{}};p.updated=Date.now();save();toast(secs.length+' sections imported')},
  shareRetry(d){$('#dlg').close();const p=P(d.id),m=p.team.find(x=>x.cid===d.cid);if(m)shareMember(p,m)},
  shareManual(d){$('#dlg').close();const p=P(d.id),m=p.team.find(x=>x.cid===d.cid);if(m){m.shared=emailOf(m.cid);m.manual=true;p.shared=true;save();toast('Marked as shared')}},
+ diag(){diagDrive()},copyDiag(){navigator.clipboard.writeText(window.__diag||'').then(()=>toast('Report copied'))},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
