@@ -392,7 +392,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}?authuser=${encodeURIComponent(acctOf(p))}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
-function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button>${FUNDED.includes(p.type)||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
+function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button><button type="button" data-a="autoDates" data-id="${p.id}" title="Spread undated and automatic dates between today and the deadline">Auto-set dates</button>${FUNDED.includes(p.type)||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
  <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.link&&/^https:\/\/mail\.google\.com\//.test(t.link)?` <a class="sm2" target="_blank" rel="noopener" href="${esc(t.link)}">email</a>`:''}${t.by?` <span class="chip">added by ${esc(t.by)}</span>`:''}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
 
 function versions(p){
@@ -433,7 +433,7 @@ const A={
  importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=fix(s);state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
  newProject(){openForm('New writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
   const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[],team:[],log:[]};
-  state.projects.push(p);location.hash='#/p/'+p.id;save()})},
+  autoPlan(p);state.projects.push(p);location.hash='#/p/'+p.id;save()})},
  delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);p.gone=[...(p.gone||[]),d.t];save()},
  upload(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
@@ -479,8 +479,8 @@ const A={
  addSnip(){snipForm(null)},editSnip(d){snipForm(state.snips.find(x=>x.id===d.id))},
  delSnip(d){state.snips=state.snips.filter(x=>x.id!==d.id);save()},
  copySnip(d){navigator.clipboard.writeText(state.snips.find(x=>x.id===d.id).text).then(()=>toast('Copied'))},
- addPubTpl(d){const p=P(d.id);openForm('Publisher checklist',[{name:'t',label:'Publisher',type:'select',options:Object.keys(PUBTPL)}],{},o=>{PUBTPL[o.t].forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));save();toast('Added. Confirm against the current author guidelines.')})},
- addPack(d){const p=P(d.id);PACK.forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));save();toast('Bid pack checklist added')},
+ addPubTpl(d){const p=P(d.id);openForm('Publisher checklist',[{name:'t',label:'Publisher',type:'select',options:Object.keys(PUBTPL)}],{},o=>{PUBTPL[o.t].forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));autoPlan(p);save();toast('Added. Confirm against the current author guidelines.')})},
+ addPack(d){const p=P(d.id);PACK.forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));autoPlan(p);save();toast('Bid pack checklist added')},
  addReq(d){const p=P(d.id);openForm('Requirement',[{name:'text',label:'What the call requires',req:1,full:1}],{},o=>{(p.reqs=p.reqs||[]).push({id:uid(),text:o.text,done:false});save()})},
  toggleReq(d){},delReq(d){const p=P(d.id);p.reqs=p.reqs.filter(r=>r.id!==d.r);save()},
  useWords(d){const p=P(d.id),r=CHK[p.id];if(r&&r.words){setWords(p,r.words);save()}},
@@ -493,6 +493,7 @@ const A={
  promoMult(){const pr=state.settings.promo;openForm('Target multiplier',[{name:'mult',label:'Target = policy minimum times',type:'number',def:pr.mult}],{},o=>{pr.mult=Math.max(1,+o.mult||1);save()})},
  promoAdd(){const pr=state.settings.promo;openForm('Add row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number',def:0}],{},o=>{pr.rows.push({id:uid(),label:o.label,type:o.type,min:+o.min||0});save()})},
  promoEdit(d){const pr=state.settings.promo,r=pr.rows[+d.i];openForm('Edit row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number'}],r,o=>{Object.assign(r,{label:o.label,type:o.type,min:+o.min||0});save()})},
+ autoDates(d){const p=P(d.id);if(!p.deadline)return toast('Set a deadline in Overview first');const n=autoPlan(p);if(!n)return toast('Every task already has a date you set');save();toast(n+' dates set between today and '+fmt(p.deadline))},
  wrStop(d){if(WR[d.id])WR[d.id].abort=true;toast('Stopping after this section…')},
  async wrRegen(d){const p=P(d.id),i=+d.i,o=p.wr||{};
   openForm('Rewrite this section',[{name:'extra',label:'Instruction (optional), e.g. shorter, stress sustainability, add the evidence from my brief',type:'textarea',full:1}],{},async f=>{
@@ -591,7 +592,7 @@ const A={
  setStage(d){const p=P(d.id);if(p.stage===d.s)return;p.stage=d.s;p.updated=Date.now();save()},
  theme(){const o=['auto','light','dark'],t=localStorage.getItem('wf.theme')||'auto';localStorage.setItem('wf.theme',o[(o.indexOf(t)+1)%3]);applyTheme()},
  menu(){document.body.classList.toggle('menu')},
- addTpl(d){const p=P(d.id);const have=new Set(p.tasks.map(t=>t.title));(TEMPLATES[p.type]||[]).forEach(t=>{if(!have.has(t))p.tasks.push({id:uid(),title:t,due:'',done:false})});save()},
+ addTpl(d){const p=P(d.id);const have=new Set(p.tasks.map(t=>t.title));(TEMPLATES[p.type]||[]).forEach(t=>{if(!have.has(t))p.tasks.push({id:uid(),title:t,due:'',done:false})});autoPlan(p);save()},
  calPrev(){CAL.setMonth(CAL.getMonth()-1);render()},
  calNext(){CAL.setMonth(CAL.getMonth()+1);render()},
  calToday(){CAL=new Date();CAL.setDate(1);render()},
@@ -877,6 +878,20 @@ document.addEventListener('submit',e=>{if(e.target.id!=='wrf')return;e.preventDe
  p.wr={brief:o.brief,callText:o.callText,callFile:o.callFile,sections:o.sections,length:o.length,tone:o.tone,useSnips:o.useSnips};
  p.draft=null;writeProposal(p,o)});
 
+/* ---------- Auto-dates ---------- */
+const addDays=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return isoDate(d)};
+function autoPlan(p,all){const dl=p.deadline;if(!dl)return 0;
+ const open=p.tasks.filter(t=>!t.done&&(all||!t.due||t.auto));if(!open.length)return 0;
+ const D=Math.max(0,days(dl)),t0=today();
+ const fin=t=>/^(submit|send)\b|submit (before|the|at|by)/i.test(t.title);
+ const body=open.filter(t=>!fin(t)),finals=open.filter(fin);
+ const heavy=/draft|narrative|methodolog|write|analy|develop|data collection|work plan|budget|proposal|outline|nomination|evidence|pilot|financial/i,light=/confirm|read|decide|check|format|upload|request|review/i;
+ const w=t=>heavy.test(t.title)?3:light.test(t.title)?1:2;
+ const span=finals.length&&D>=2?D-1:D,total=body.reduce((n,t)=>n+w(t),0)||1;let cum=0;
+ const wk=iso=>{const g=new Date(iso+'T00:00:00').getDay();if(g===6){const f=addDays(iso,-1);return f>=t0?f:iso}if(g===0){const m=addDays(iso,1);return m<=dl?m:iso}return iso};
+ body.forEach(t=>{cum+=w(t);t.due=wk(addDays(t0,Math.round(span*cum/total)));t.auto=true;t.m=Date.now()});
+ finals.forEach(t=>{t.due=dl;t.auto=true;t.m=Date.now()});
+ return open.length}
 /* ---------- Co-author sharing ---------- */
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
 const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
@@ -1243,12 +1258,12 @@ document.addEventListener('change',e=>{
  if(a==='resNote'){p.research[+t.dataset.i].note=t.value;save();return}
  if(a==='stage'){p.stage=t.value;save()}
  if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;k.m=Date.now();save()}
- if(a==='taskDue'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.due=t.value;k.m=Date.now();save()}});
+ if(a==='taskDue'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.due=t.value;k.auto=false;k.m=Date.now();save()}});
 document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){filt.q=t.value;const pos=t.selectionStart;render();const i=document.querySelector('[data-in=q]');i.focus();i.setSelectionRange(pos,pos)}});
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
  const p=P(route().id),fd=Object.fromEntries(new FormData(f));
- if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
+ if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}const oldDl=p.deadline;Object.assign(p,fd);if(p.deadline&&p.deadline!==oldDl)autoPlan(p);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
  if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||'',m:Date.now()});
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
