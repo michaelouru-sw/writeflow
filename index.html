@@ -104,7 +104,7 @@ function dueChip(d){if(!d)return'';const n=days(d);const c=n<0?'bad':n<=14?'warn
 /* ---------- Google Drive ---------- */
 let tokenClient,accessToken,tokenExp=0,syncTimer,syncMsg='Drive: not connected';
 function initGIS(){const id=state.settings.clientId;if(!id||!window.google)return;
- tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive.file',callback:()=>{}});
+ tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive',callback:()=>{}});
  if(localStorage.getItem('wf.connected')){setSync('Drive: click to reconnect')}else setSync()}
 function setSync(m){if(m)syncMsg=m;else syncMsg=state.settings.clientId?(accessToken?'Drive: connected':'Drive: not connected'):'Drive: set Client ID in Settings';
  const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(state.settings.clientId&&!accessToken?'<br><button class="sm" data-a="connect">Connect Drive</button>':'')}
@@ -236,7 +236,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('wordTarget','Word target',p.wordTarget,'number')}${fld('words','Current words',p.words,'number')}
  ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
  <div class="full row"><button class="pri">Save</button><span class="sp"></span><button type="button" class="danger" data-a="delProject" data-id="${p.id}">Delete writing</button></div></form></div>
- <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}</div>`}
+ <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
 function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px"><button class="pri">Add</button></form></div>
@@ -244,7 +244,7 @@ function tasks(p){return`<div class="card"><form id="addtask" class="row"><input
 
 function versions(p){
  const docs=[...new Set(p.versions.map(v=>v.doc))];
- return`<div class="card"><div class="row"><button class="pri" data-a="upload" data-id="${p.id}">⬆ Upload to Drive</button><button data-a="linkVersion" data-id="${p.id}">+ Link existing file</button></div>
+ return`<div class="card"><div class="row"><button class="pri" data-a="upload" data-id="${p.id}">⬆ Upload to Drive</button><button data-a="browse" data-id="${p.id}">📂 Browse Drive</button><button data-a="linkVersion" data-id="${p.id}">+ Link by URL</button></div>
  <p class="mute" style="margin-bottom:0">Each upload is stored in this writing's Drive folder and auto-numbered per document.</p></div>
  ${docs.map(d=>`<div class="card"><h3>${esc(d)}</h3><table><tr><th>Ver</th><th>Kind</th><th>File</th><th>Date</th><th>Note</th><th></th></tr>${p.versions.filter(v=>v.doc===d).sort((a,b)=>b.n-a.n).map(v=>`<tr><td><b>${esc(v.label)}</b></td><td><span class="chip">${esc(v.kind)}</span></td><td>${v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||'Open')}</a>`:esc(v.fileName||'')}</td><td>${fmt(v.date)}</td><td>${esc(v.note)}</td><td><button class="sm danger" data-a="delVersion" data-id="${p.id}" data-v="${v.id}" title="Removes listing only; Drive file is kept">✕</button></td></tr>`).join('')}</table></div>`).join('')}`}
 
@@ -284,6 +284,14 @@ const A={
  linkVersion(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link});save()})},
+ browse(d){BR={pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ brOpen(d){BR.q='';BR.stack.push({id:d.id,name:d.n});brLoad()},
+ brCrumb(d){BR.q='';BR.stack=BR.stack.slice(0,+d.i+1);brLoad()},
+ brSearch(){BR.q=($('#brq').value||'').trim();brLoad()},
+ brUse(){const p=P(BR.pid),cur=BR.stack[BR.stack.length-1];p.folderId=cur.id;$('#dlg').close();save()},
+ brLink(d){const f=BR.files.find(x=>x.id===d.id),p=P(BR.pid);const docs=[...new Set(p.versions.map(v=>v.doc))];
+  openForm('Link as version',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'note',label:'Note',full:1}],{},o=>{
+   const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:f.name,driveId:f.id,link:f.webViewLink});save()})},
  delVersion(d){if(!confirm('Remove from list? (The Drive file is not deleted)'))return;const p=P(d.id);p.versions=p.versions.filter(v=>v.id!==d.v);save()},
  addReview(d){revForm(P(d.id))},
  editReview(d){const p=P(d.id);revForm(p,p.reviews.find(r=>r.id===d.r))},
@@ -301,6 +309,24 @@ function revForm(p,r){openForm(r?'Edit review round':'New review round',[{name:'
  if(r)Object.assign(r,o);else p.reviews.push({id:uid(),...o,points:[]});save()})}
 function subForm(p,s){openForm('Submission',[{name:'venue',label:'Venue / funder',def:p.venue,req:1},{name:'date',label:'Submitted on',type:'date',def:today()},{name:'status',label:'Status',type:'select',options:SUBST},{name:'decisionDate',label:'Decision date',type:'date'},{name:'notes',label:'Notes / manuscript ID',type:'textarea',full:1}],s,o=>{
  if(s)Object.assign(s,o);else p.submissions.push({id:uid(),...o});save()})}
+
+/* ---------- Drive browser ---------- */
+let BR={pid:'',stack:[],q:'',files:[],msg:''};
+async function brLoad(){
+ const d=$('#dlg');d.innerHTML='<p class="mute">Loading Drive…</p>';if(!d.open)d.showModal();BR.msg='';
+ try{const cur=BR.stack[BR.stack.length-1];
+  const q=BR.q?`name contains '${BR.q.replace(/'/g,"\\'")}' and trashed=false`:`'${cur.id}' in parents and trashed=false`;
+  BR.files=(await(await g('https://www.googleapis.com/drive/v3/files?pageSize=100&orderBy=folder,name&fields=files(id,name,mimeType,webViewLink)&q='+encodeURIComponent(q))).json()).files}
+ catch(e){BR.files=[];BR.msg=e.message}
+ brDraw()}
+function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=BR.stack[BR.stack.length-1];
+ d.innerHTML=`<h3 style="margin-top:0">Browse Google Drive</h3>
+ <div class="row" style="margin-bottom:8px"><input id="brq" placeholder="Search by name…" value="${esc(BR.q)}"><button data-a="brSearch">Search</button></div>
+ <div class="mute" style="margin-bottom:8px">${BR.stack.map((s,i)=>`<button class="link" data-a="brCrumb" data-i="${i}">${esc(s.name)}</button>`).join(' / ')}${BR.q?' · results for “'+esc(BR.q)+'”':''}</div>
+ ${BR.msg?`<p style="color:var(--bad)">${esc(BR.msg)}</p>`:''}
+ <div style="max-height:50vh;overflow:auto">${BR.files.map(f=>f.mimeType===F?`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><button class="link sp" style="text-align:left" data-a="brOpen" data-id="${f.id}" data-n="${esc(f.name)}">📁 ${esc(f.name)}</button></div>`:`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="sp">📄 ${esc(f.name)}</span><button class="sm" data-a="brLink" data-id="${f.id}">Link as version</button></div>`).join('')||'<span class="mute">Empty.</span>'}</div>
+ <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>':''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='brq'){e.preventDefault();A.brSearch()}});
 
 /* ---------- Global events ---------- */
 document.addEventListener('click',e=>{

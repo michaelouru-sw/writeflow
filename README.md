@@ -28,7 +28,7 @@ The repo holds only code. Your data lives in your browser and Drive, so a public
    - Authorized JavaScript origins: `https://michaelouru-sw.github.io` (add `http://localhost:8000` for local testing)
 5. Copy the Client ID → WriteFlow → ⚙ Settings → paste → Save → **Connect Drive**.
 
-Scope used: `drive.file` (app only touches files it creates, in a `WriteFlow/` folder).
+Scope used: `drive` (full Drive access, needed to browse existing files and folders). Keep the OAuth app in Testing mode and only add yourself as test user.
 
 ## Notes
 - Each writing gets a subfolder: `WriteFlow/<title>/`.
