@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WriteFlow</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0F6E7A"><link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{--paper:#F3F5F8;--sheet:#fff;--ink:#12202F;--ink2:#52627A;--line:#DCE2EA;--wash:#EAEFF5;--accent:#0F6E7A;--accent-ink:#fff;--mark:#FFE066;--mark-ink:#3a2f00;--alert:#C4372B;--warn:#A85F08;--ok:#2E7D4F;--r:8px;
@@ -112,6 +113,10 @@ dialog[open]{animation:pop .14s ease-out}@keyframes pop{from{transform:translate
  aside{position:fixed;z-index:30;left:0;top:0;width:252px;transform:translateX(-100%);transition:transform .2s}body.menu aside{transform:none;box-shadow:0 0 40px rgba(0,0,0,.3)}
  .mbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--sheet);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;font:600 16px var(--serif)}
  main{padding-top:18px}.top h2,.head h1{font-size:23px}}
+.c1{display:flex;gap:12px;align-items:flex-start}.selbox{margin-top:4px}
+.bulk{position:sticky;top:0;z-index:6;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:10px;margin-bottom:12px}
+.bulk select{width:auto;background:var(--sheet);color:var(--ink)}.bulk .sp{flex:1}
+.bars{display:flex;align-items:flex-end;gap:4px;height:64px;min-width:160px}.bars i{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:3px}
 </style>
 </head>
 <body>
@@ -123,6 +128,9 @@ dialog[open]{animation:pop .14s ease-out}@keyframes pop{from{transform:translate
   <a class="nav" href="#/board" data-n="board"><svg viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v10h-5zM16 4h4v13h-4z"/></svg>Board</a>
   <a class="nav" href="#/list" data-n="list"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>All writings</a>
   <a class="nav" href="#/calendar" data-n="calendar"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></svg>Calendar</a>
+  <a class="nav" href="#/funding" data-n="funding"><svg viewBox="0 0 24 24"><path d="M12 3v18M16 7.5c0-1.7-1.8-3-4-3s-4 1.3-4 3 1.8 3 4 3 4 1.3 4 3-1.8 3-4 3-4-1.3-4-3"/></svg>Funding</a>
+  <a class="nav" href="#/venues" data-n="venues"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/></svg>Venues</a>
+  <a class="nav" href="#/people" data-n="people"><svg viewBox="0 0 24 24"><path d="M16 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1a4 4 0 0 0-3-3.8M16 4.2a3.5 3.5 0 0 1 0 6.6"/></svg>People</a>
   <a class="nav" href="#/library" data-n="library"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File library</a>
   <div class="side-foot">
     <div id="accts"></div>
@@ -158,12 +166,14 @@ const SUBST=['Submitted','Under review','Revise & resubmit','Accepted','Rejected
 /* ---------- State ---------- */
 const KEY='writeflow.v1';
 let state=load();
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return s}catch(e){}return{projects:[],settings:{},updated:0}}
+function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return fix(s)}catch(e){}return fix({projects:[],settings:{},updated:0})}
 function save(){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render();scheduleSync()}
 const uid=()=>Math.random().toString(36).slice(2,10);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const today=()=>new Date().toISOString().slice(0,10);
+const isoDate=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const today=()=>isoDate(new Date());
+const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
 const days=d=>d?Math.round((new Date(d+'T00:00:00')-new Date(today()+'T00:00:00'))/864e5):null;
 const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'—';
 const P=id=>state.projects.find(p=>p.id===id);
@@ -171,15 +181,15 @@ const isActive=p=>!CLOSED.includes(p.stage);
 function dueChip(d){if(!d)return'';const n=days(d);const c=n<0?'bad':n<=14?'warn':'';return`<span class="chip ${c}">${n<0?Math.abs(n)+'d overdue':n===0?'today':n+'d'}</span>`}
 
 /* ---------- Google Drive & accounts ---------- */
-let tokenClient,syncTimer,syncMsg='',signedIn=false,TOK={};
+let tokenClient,syncTimer,syncMsg='',signedIn=false,offline=false,TOK={};
 const accts=()=>state.settings.accounts||[];
 const primary=()=>(accts().find(a=>a.primary)||accts()[0]||{}).email;
 const acctOf=p=>p.account||primary();
 const tokenOk=e=>TOK[e]&&Date.now()<TOK[e].exp-60000;
 function initGIS(){const id=state.settings.clientId;if(!id||!window.google)return;
- tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive',callback:()=>{}})}
-function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?'Drive: connected':'Not signed in';
- const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(signedIn&&!tokenOk(primary())?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
+ tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events',callback:()=>{}})}
+function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':'Drive: connected'):'Not signed in';
+ const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
 function drawAccts(){const el=$('#accts');if(el)el.innerHTML='<div class="mute" style="font-size:12px;padding:0 8px"><b>Accounts</b>'+accts().map(a=>`<div>${esc(a.email)}${a.primary?' ★':''}</div>`).join('')+'</div>'}
 function requestToken(hint,select){return new Promise((res,rej)=>{
  if(!tokenClient)initGIS();
@@ -220,24 +230,24 @@ async function pushData(){
   const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:'writeflow-data.json',parents:[root]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
-function scheduleSync(){if(!signedIn)return;clearTimeout(syncTimer);setSync('Drive: saving…');
- syncTimer=setTimeout(async()=>{try{await pushData();setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
+function scheduleSync(){if(!signedIn||offline)return;clearTimeout(syncTimer);setSync('Drive: saving…');
+ syncTimer=setTimeout(async()=>{try{await pushData();snapshot().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
  if(remote&&(remote.updated||0)>state.updated&&(!state.projects.length||confirm("A newer copy exists in Google Drive. Load it? (Cancel keeps this browser's copy and overwrites Drive)"))){
-  const keep=state.settings;state=remote;state.settings={...remote.settings,...keep,accounts:mergeAcc(keep.accounts,(remote.settings||{}).accounts)};localStorage.setItem(KEY,JSON.stringify(state))}
+  const keep=state.settings;state=fix(remote);state.settings={...remote.settings,...keep,accounts:mergeAcc(keep.accounts,(remote.settings||{}).accounts)};localStorage.setItem(KEY,JSON.stringify(state))}
  else await pushData();
  setSync('Drive: connected & synced')}
 async function doLogin(){try{if(primary())await getToken(primary());else await addAccount();
- signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));await syncDown();render()}
+ signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));await syncDown();render();notifyDue()}
  catch(e){signedIn=false;alert(e.message);render()}}
 async function signOut(){if(!confirm("Sign out? Changes are synced to Drive first, then this device's local copy is cleared."))return;
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
- state={projects:[],settings:keep,updated:0};localStorage.setItem(KEY,JSON.stringify(state));TOK={};signedIn=false;location.hash='';render()}
+ state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};signedIn=false;location.hash='';render()}
 function loginView(){const has=!!state.settings.clientId;
  return`<div style="max-width:420px;margin:12vh auto"><div class="card" style="padding:24px;text-align:center"><div class="brand" style="justify-content:center;margin:0 0 12px"><i>W</i>WriteFlow</div><p class="mute">Sign in with Google to load your writings from Drive.</p>
- ${has?`<button class="pri" data-a="login" style="width:100%;padding:10px">Sign in with Google</button>${primary()?`<p class="mute">Primary account: ${esc(primary())}</p>`:''}`
+ ${has?`<button class="pri" data-a="login" style="width:100%;padding:10px">Sign in with Google</button>${state.projects.length?'<button data-a="goOffline" style="width:100%;margin-top:8px">Open offline copy</button>':''}${primary()?`<p class="mute">Primary account: ${esc(primary())}</p>`:''}`
  :`<div style="text-align:left"><label class="mute">Google OAuth Client ID</label><input id="cid" placeholder="xxxx.apps.googleusercontent.com"><button class="pri" data-a="saveClient" style="margin-top:8px;width:100%">Save and continue</button><p class="mute"><a target="_blank" rel="noopener" href="https://github.com/michaelouru-sw/writeflow#2-connect-google-drive-one-time-free">How to get one</a></p></div>`}
  <p class="mute" style="font-size:12px;margin-bottom:0">Your data lives in your Drive. This browser keeps only a cache until you sign out.</p></div></div>`}
 
@@ -267,6 +277,9 @@ function render(){const r=route();
  else if(r.page==='board')v.innerHTML=board();
  else if(r.page==='list')v.innerHTML=list();
  else if(r.page==='calendar')v.innerHTML=calendar();
+ else if(r.page==='funding')v.innerHTML=funding();
+ else if(r.page==='venues')v.innerHTML=venues();
+ else if(r.page==='people')v.innerHTML=people();
  else if(r.page==='library')v.innerHTML=library();
  else v.innerHTML=dashboard();
  setSync();drawAccts();bindDrag()}
@@ -278,7 +291,8 @@ const prog=p=>{const pct=p.wordTarget?Math.min(100,Math.round(100*(p.words||0)/p
 function rail(p,compact){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.stage);
  return`<div class="rail${compact?' c':''}">${st.map((x,k)=>{const cls='nd'+(k<i?' done':'')+(k===i?' now':'');
   return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em></button>`}).join('')}</div>`}
-const wrow=p=>`<div class="wrow" data-go="#/p/${p.id}"><div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
+let SEL=new Set();
+const wrow=(p,sel)=>`<div class="wrow" data-go="#/p/${p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function dashboard(){
  const act=state.projects.filter(isActive),items=calItems().sort((a,b)=>a.d.localeCompare(b.d));
  const bucket=f=>items.filter(i=>f(days(i.d)));
@@ -293,17 +307,20 @@ function dashboard(){
  const head=`<div class="head"><div><h1>${date}</h1><p class="sub">${act.length} active writing${act.length===1?'':'s'}, ${od.length} overdue, ${soon} due in the next 30 days, ${open} open review point${open===1?'':'s'}.</p></div><div class="acts"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  if(!state.projects.length)return head+`<div class="card empty"><b style="color:var(--ink)">No writings yet</b><p>Import your existing folders from Drive, or start with a new grant, article or chapter.</p><div class="row" style="justify-content:center"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  return head+`<div class="cols"><section class="panel"><h2>Needs attention</h2>${grp('Overdue',od)}${grp('This week',wk)}${grp('Next 30 days',lt)}${items.some(i=>days(i.d)<=30)?'':'<span class="mute">Nothing due in the next 30 days.</span>'}</section>
- <section class="panel" style="padding-bottom:6px"><h2>Active writings</h2><div class="wlist" style="border:0;border-radius:0;margin:0 -18px">${sorted.slice(0,8).map(wrow).join('')||'<div class="empty">All writings are closed.</div>'}</div>${act.length>8?`<p style="margin:8px 0 10px"><a href="#/list">View all ${act.length}</a></p>`:''}</section></div>
- <section class="panel"><h2>Recent files</h2>${recent.map(v=>`<div class="item" style="cursor:default"><span class="sp">${v.driveId?`<button class="link" data-a="view" data-id="${v.pid}" data-v="${v.id}">${esc(v.fileName||v.doc)}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||v.doc)}</a>`:esc(v.fileName||v.doc))}<br><span class="mute sm2">${esc(v.pt)}, ${esc(v.doc)} ${esc(v.label)}</span></span><span class="chip">${esc(v.kind)}</span><span class="mute sm2">${fmt(v.date)}</span></div>`).join('')||'<span class="mute">No files yet. Upload a draft from any writing.</span>'}</section>`}
+ <section class="panel" style="padding-bottom:6px"><h2>Active writings</h2><div class="wlist" style="border:0;border-radius:0;margin:0 -18px">${sorted.slice(0,8).map(p=>wrow(p)).join('')||'<div class="empty">All writings are closed.</div>'}</div>${act.length>8?`<p style="margin:8px 0 10px"><a href="#/list">View all ${act.length}</a></p>`:''}</section></div>
+ ${logPanel()}<section class="panel"><h2>Recent files</h2>${recent.map(v=>`<div class="item" style="cursor:default"><span class="sp">${v.driveId?`<button class="link" data-a="view" data-id="${v.pid}" data-v="${v.id}">${esc(v.fileName||v.doc)}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||v.doc)}</a>`:esc(v.fileName||v.doc))}<br><span class="mute sm2">${esc(v.pt)}, ${esc(v.doc)} ${esc(v.label)}</span></span><span class="chip">${esc(v.kind)}</span><span class="mute sm2">${fmt(v.date)}</span></div>`).join('')||'<span class="mute">No files yet. Upload a draft from any writing.</span>'}</section>`}
 
 /* ---------- List ---------- */
 let filt={q:'',type:'',showClosed:false};
-function list(){
+function list(){SEL=new Set([...SEL].filter(id=>P(id)));
  const rows=state.projects.filter(p=>(filt.showClosed||isActive(p))&&(!filt.type||p.type===filt.type)&&(!filt.q||(p.title+p.venue+p.tags+p.collaborators).toLowerCase().includes(filt.q.toLowerCase())))
   .sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+ const allOn=rows.length>0&&rows.every(p=>SEL.has(p.id));
+ const stages=[...new Set(state.projects.filter(p=>SEL.has(p.id)).flatMap(p=>PIPE[p.type]))];
+ const bulk=SEL.size?`<div class="bulk"><b>${SEL.size} selected</b><select id="bulkStage"><option value="">Set stage…</option>${stages.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button data-a="bulkStage">Apply</button><span class="sp"></span><button class="danger" data-a="bulkDelete">Delete selected</button><button data-a="bulkClear">Clear</button></div>`:'';
  return`<div class="top"><h2>All writings</h2><input style="width:220px" placeholder="Search title, venue, tags" value="${esc(filt.q)}" data-in="q"><select style="width:170px" data-in="type"><option value="">All types</option>${TYPES.map(t=>`<option ${filt.type===t?'selected':''}>${t}</option>`).join('')}</select>
- <label class="row"><input type="checkbox" ${filt.showClosed?'checked':''} data-in="showClosed"> Show closed</label><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div>
- ${rows.length?`<div class="wlist">${rows.map(wrow).join('')}</div>`:'<div class="card empty">No writings match. Clear the search or add a new one.</div>'}`}
+ <label class="row"><input type="checkbox" ${filt.showClosed?'checked':''} data-in="showClosed"> Show closed</label><button data-a="pubExport">Export publications</button><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div>
+ ${bulk}${rows.length?`<label class="row mute sm2" style="margin:0 0 8px 4px"><input type="checkbox" data-selall ${allOn?'checked':''}> Select all ${rows.length}</label><div class="wlist">${rows.map(p=>wrow(p,true)).join('')}</div>`:'<div class="card empty">No writings match. Clear the search or add a new one.</div>'}`}
 
 /* ---------- Board ---------- */
 let boardType='';
@@ -323,12 +340,12 @@ function library(){
 
 /* ---------- Detail ---------- */
 function detail(p,tab){
- const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['notes','Notes']];
+ const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['notes','Notes'],['assistant','Assistant']];
  const acc=accts().length>1?`<span class="chip">${esc(acctOf(p))}</span>`:'';
  return`<a href="#/list" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
- <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div></div>
+ <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button></div></div>
  <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>
- <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,notes}[tab]||overview)(p)}`}
+ <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,notes,assistant}[tab]||overview)(p)}`}
 function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('title','Title',p.title,'text','full')}
  <div><label>Type</label><select name="type">${TYPES.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>
@@ -338,12 +355,14 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('wordTarget','Word target',p.wordTarget,'number')}${fld('words','Current words',p.words,'number')}
  ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
+ ${p.type==='Grant proposal'?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
  <div class="full row"><button class="pri">Save</button><span class="sp"></span><button type="button" class="danger" data-a="delProject" data-id="${p.id}">Delete writing</button></div></form></div>
+ <div class="card"><h3>Citation</h3>${p.citation?`<p style="margin:0 0 10px">${esc(p.citation)}</p>`:'<p class="mute" style="margin:0 0 10px">Add a DOI above and save, then look it up to fill the citation.</p>'}<div class="row" style="flex-wrap:wrap"><button class="sm" data-a="doiLookup" data-id="${p.id}">Look up DOI</button><button class="sm" data-a="editCite" data-id="${p.id}">Edit citation</button>${p.citation?`<button class="sm" data-a="copyCite" data-id="${p.id}">Copy</button>`:''}</div></div>
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}?authuser=${encodeURIComponent(acctOf(p))}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
-function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px"><button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button></form></div>
- <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}</span><input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
+function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button></form></div>
+ <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
 
 function versions(p){
  const docs=[...new Set(p.versions.map(v=>v.doc))];
@@ -358,7 +377,7 @@ function reviews(p){return`<div class="card"><button class="pri" data-a="addRevi
   ${r.points.map((x,i)=>`<div class="pt ${x.done?'done':''}"><div class="row"><b class="sp">#${i+1} ${esc(x.comment)}</b><button class="sm" data-a="editPoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">Respond</button><button class="sm" data-a="togglePoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">${x.done?'Reopen':'Mark done'}</button></div>${x.response?`<div class="mute">↳ ${esc(x.response)}</div>`:''}</div>`).join('')}
   <button class="sm" data-a="addPoint" data-id="${p.id}" data-r="${r.id}">+ Add comment</button></div>`}).join('')}`}
 
-function submissions(p){return`<div class="card"><button class="pri" data-a="addSub" data-id="${p.id}">+ Log submission</button></div>
+function submissions0(p){return`<div class="card"><button class="pri" data-a="addSub" data-id="${p.id}">+ Log submission</button></div>
  <div class="card"><table><tr><th>Venue / funder</th><th>Submitted</th><th>Status</th><th>Decision</th><th>Notes</th><th></th></tr>${p.submissions.map(s=>`<tr><td>${esc(s.venue)}</td><td>${fmt(s.date)}</td><td><span class="chip ${s.status==='Accepted'?'ok':s.status==='Rejected'?'bad':''}">${esc(s.status)}</span></td><td>${fmt(s.decisionDate)}</td><td>${esc(s.notes)}</td><td><button class="sm" data-a="editSub" data-id="${p.id}" data-s="${s.id}">Edit</button> <button class="sm danger" data-a="delSub" data-id="${p.id}" data-s="${s.id}">✕</button></td></tr>`).join('')||'<tr><td colspan=6 class="mute">No submissions logged. Track resubmissions to other venues here.</td></tr>'}</table></div>`}
 
 function notes(p){return`<div class="card"><form id="nt"><textarea name="notes" style="min-height:300px" placeholder="Outline, ideas, reviewer strategy, abstract…">${esc(p.notes)}</textarea><div class="row" style="margin-top:8px"><button class="pri">Save notes</button></div></form></div>`}
@@ -367,7 +386,9 @@ function notes(p){return`<div class="card"><form id="nt"><textarea name="notes" 
 const A={
  closeDlg:()=>$('#dlg').close(),
  settings(){openForm('Settings',[{name:'clientId',label:'Google OAuth Client ID',full:true}],state.settings,o=>{const c=o.clientId.trim();if(c!==state.settings.clientId){state.settings.clientId=c;tokenClient=null;initGIS()}save()});
-  $('#dlg').insertAdjacentHTML('beforeend',`<h4 style="margin:14px 0 6px">Google accounts (Drives)</h4>${accts().map(a=>`<div class="row" style="padding:4px 0"><span class="sp">${esc(a.email)} ${a.primary?'<span class="chip ok">primary: holds app data</span>':''}</span>${a.primary?'':`<button class="sm" data-a="setPrimary" data-e="${esc(a.email)}">Make primary</button><button class="sm danger" data-a="rmAcct" data-e="${esc(a.email)}">Remove</button>`}</div>`).join('')}<div class="row" style="margin-top:6px"><button class="sm" data-a="addAcct">+ Add Google account</button></div><div class="row" style="margin-top:12px"><button data-a="exportJson">Export JSON</button><button data-a="importJson">Import JSON</button></div>`)},
+  $('#dlg').insertAdjacentHTML('beforeend',`<h4 style="margin:14px 0 6px">Google accounts (Drives)</h4>${accts().map(a=>`<div class="row" style="padding:4px 0"><span class="sp">${esc(a.email)} ${a.primary?'<span class="chip ok">primary: holds app data</span>':''}</span>${a.primary?'':`<button class="sm" data-a="setPrimary" data-e="${esc(a.email)}">Make primary</button><button class="sm danger" data-a="rmAcct" data-e="${esc(a.email)}">Remove</button>`}</div>`).join('')}<div class="row" style="margin-top:6px"><button class="sm" data-a="addAcct">+ Add Google account</button></div><h4 style="margin:16px 0 6px">Assistant (optional)</h4><p class="mute sm2" style="margin:0 0 6px">Your Anthropic API key stays in this browser and is never synced to Drive.</p><input id="aikey" type="password" placeholder="Anthropic API key" value="${esc(aiCfg().key||'')}"><input id="aimodel" style="margin-top:6px" placeholder="Model" value="${esc(aiCfg().model||'claude-sonnet-5-5')}"><div class="row" style="margin-top:6px"><button class="sm" data-a="saveAI">Save assistant settings</button></div>
+  <h4 style="margin:16px 0 6px">Reminders and backups</h4><div class="row" style="flex-wrap:wrap"><button class="sm" data-a="enableNotify">Enable desktop reminders</button><button class="sm" data-a="backups">Restore from backup</button></div>
+  <div class="row" style="margin-top:14px"><button data-a="exportJson">Export JSON</button><button data-a="importJson">Import JSON</button></div>`)},
  addAcct(){addAccount().then(()=>{save();A.settings()}).catch(e=>alert(e.message))},
  setPrimary(d){accts().forEach(x=>x.primary=x.email===d.e);save();A.settings()},
  rmAcct(d){const n=state.projects.filter(p=>p.account===d.e).length;if(!confirm('Remove '+d.e+'?'+(n?' '+n+' writing(s) use it and will fall back to the primary account (their Drive folder links are cleared).':'')))return;
@@ -375,13 +396,13 @@ const A={
  login:()=>doLogin(),
  signOut:()=>signOut(),
  saveClient(){const v=($('#cid').value||'').trim();if(!v)return;state.settings.clientId=v;localStorage.setItem(KEY,JSON.stringify(state));initGIS();render()},
- async connect(){try{await getToken(primary());setSync();scheduleSync()}catch(e){alert(e.message)}},
+ async connect(){try{await getToken(primary());if(offline){offline=false;await syncDown();render()}setSync();scheduleSync()}catch(e){alert(e.message)}},
  exportJson(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='writeflow-backup-'+today()+'.json';a.click()},
- importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=s;state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
+ importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=fix(s);state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
  newProject(){openForm('New writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
   const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[]};
   state.projects.push(p);location.hash='#/p/'+p.id;save()})},
- delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){state.projects=state.projects.filter(p=>p.id!==d.id);location.hash='#/list';save()}},
+ delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);save()},
  upload(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
   openForm('Upload to Google Drive',[{name:'file',label:'File',type:'file',full:1},{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'note',label:'Note (what changed)',full:1}],{},async o=>{
@@ -395,6 +416,67 @@ const A={
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link,driveId:driveIdFromUrl(o.link)});save()})},
  browse(d){BR={mode:'',acct:acctOf(P(d.id)),pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
+ bulkClear(){SEL.clear();render()},
+ bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
+  const gone=state.projects.filter(p=>SEL.has(p.id));state.projects=state.projects.filter(p=>!SEL.has(p.id));SEL.clear();UNDO=()=>{state.projects.push(...gone);save()};save();toast(n+' deleted',true)},
+ bulkStage(){const st=($('#bulkStage')||{}).value;if(!st)return toast('Choose a stage first');let ok=0;state.projects.forEach(p=>{if(SEL.has(p.id)&&PIPE[p.type].includes(st)){p.stage=st;p.updated=Date.now();ok++}});
+  const skipped=SEL.size-ok;SEL.clear();save();toast(ok+' moved to '+st+(skipped?', '+skipped+' skipped (stage not in their pipeline)':''))},
+ goOffline(){offline=true;signedIn=true;render()},
+ addPerson(){personForm(null)},
+ editPerson(d){personForm(state.contacts.find(c=>c.id===d.id))},
+ delPerson(d){if(!confirm('Delete this person? They are removed from all teams and task assignments.'))return;state.contacts=state.contacts.filter(c=>c.id!==d.id);state.projects.forEach(p=>{p.team=p.team.filter(m=>m.cid!==d.id);p.tasks.forEach(t=>{if(t.who===d.id)t.who=''})});save()},
+ addMember(d){const p=P(d.id);const av=state.contacts.filter(c=>!p.team.some(m=>m.cid===c.id));
+  if(!av.length){toast('Add a person first');return personForm(null,c=>{p.team.push({cid:c.id,role:'Co-author'});save()})}
+  const lab=c=>c.name+(c.org?' ('+c.org+')':'');
+  openForm('Add team member',[{name:'who',label:'Person',type:'select',options:av.map(lab)},{name:'role',label:'Role',type:'select',options:ROLES,def:'Co-author'}],{},o=>{const c=av.find(x=>lab(x)===o.who);p.team.push({cid:c.id,role:o.role});save()})},
+ teamNew(d){const p=P(d.id);personForm(null,c=>{p.team.push({cid:c.id,role:'Co-author'});save()})},
+ editMember(d){const p=P(d.id),m=p.team[+d.i];openForm('Role in this writing',[{name:'role',label:'Role',type:'select',options:ROLES}],m,o=>{m.role=o.role;save()})},
+ rmMember(d){P(d.id).team.splice(+d.i,1);save()},
+ addVenue(){venueForm(null)},
+ editVenue(d){venueForm(state.venues.find(v=>v.id===d.id))},
+ delVenue(d){if(confirm('Delete this venue?')){state.venues=state.venues.filter(v=>v.id!==d.id);save()}},
+ subFromVenue(d){const p=P(d.id),v=state.venues.find(x=>x.id===d.v);subForm(p,null,{venue:v.name})},
+ logWords(){const act=state.projects.filter(isActive);if(!act.length)return toast('Add a writing first');
+  openForm('Log words',[{name:'w',label:'Writing',type:'select',options:act.map(p=>p.title)},{name:'n',label:'Words written (added to the total)',type:'number',req:1}],{},o=>{const p=act.find(x=>x.title===o.w);setWords(p,(+p.words||0)+(+o.n||0));save();toast('Logged '+(+o.n||0)+' words')})},
+ logOne(d){const p=P(d.id);openForm('Log words: '+p.title,[{name:'n',label:'Words written (added to the total)',type:'number',req:1}],{},o=>{setWords(p,(+p.words||0)+(+o.n||0));save();toast('Logged '+(+o.n||0)+' words')})},
+ async doiLookup(d){const p=P(d.id);const doi=String(p.doi||'').replace(/^https?:\/\/(dx\.)?doi\.org\//i,'').trim();if(!doi)return toast('Add a DOI above and save first');
+  try{const r=await fetch('https://api.crossref.org/works/'+encodeURIComponent(doi));if(!r.ok)throw new Error('not found');const m=(await r.json()).message;
+   const au=(m.author||[]).map(a=>(a.family||'')+(a.given?', '+a.given.split(/\s+/).map(x=>x[0]+'.').join(' '):'')).join(', ');
+   const yr=((m.issued||{})['date-parts']||[[]])[0][0]||'',jn=(m['container-title']||[])[0]||'';
+   p.citation=`${au}${yr?' ('+yr+')':''}. ${(m.title||[])[0]||p.title}.${jn?' '+jn:''}${m.volume?', '+m.volume:''}${m.issue?'('+m.issue+')':''}${m.page?', '+m.page:''}. https://doi.org/${doi}`;
+   if(!p.venue&&jn)p.venue=jn;if(yr)p.pubDate=String(yr);save();toast('Citation filled from Crossref')}catch(e){toast('DOI lookup failed. Check the DOI.')}},
+ editCite(d){const p=P(d.id);openForm('Citation',[{name:'citation',label:'Citation',type:'textarea',full:1}],p,o=>{p.citation=o.citation;save()})},
+ copyCite(d){navigator.clipboard.writeText(P(d.id).citation||'').then(()=>toast('Citation copied'))},
+ pubExport(){const gs=pubList();const text=gs.map(g=>g.t+'\n'+g.items.map((x,i)=>(i+1)+'. '+x).join('\n')).join('\n\n');
+  $('#dlg').innerHTML=`<h3 style="margin-top:0">Publication list</h3><p class="mute">Accepted, in press and published work, plus awarded grants. Edit citations in each writing's Overview.</p><textarea id="pubtxt" style="min-height:260px" readonly>${esc(text||'Nothing yet. Writings at Accepted, In press or Published appear here.')}</textarea><div class="row" style="margin-top:12px"><button data-a="pubCopy">Copy</button><button data-a="pubWord">Download Word</button><span class="sp"></span><button data-a="closeDlg">Close</button></div>`;$('#dlg').showModal()},
+ pubCopy(){navigator.clipboard.writeText($('#pubtxt').value).then(()=>toast('Copied'))},
+ pubWord(){const gs=pubList();const h='<html><head><meta charset="utf-8"></head><body><h2>Publications</h2>'+gs.map(g=>`<h3>${esc(g.t)}</h3><ol>${g.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`).join('')+'</body></html>';dl(new Blob([h],{type:'application/msword'}),'publications.doc')},
+ saveAI(){localStorage.setItem('wf.ai',JSON.stringify({key:($('#aikey').value||'').trim(),model:($('#aimodel').value||'').trim()}));toast('Assistant settings saved')},
+ enableNotify(){if(!('Notification' in window))return toast('This browser does not support notifications');Notification.requestPermission().then(r=>{if(r==='granted'){localStorage.setItem('wf.notify','1');toast('Desktop reminders on');notifyDue(true)}else toast('Notifications are blocked in the browser')})},
+ aiRun(d){const p=P(d.id),k=d.k;
+  if(k==='summary')aiDo(p.id,'Review summary',async()=>({text:await claude('You help an academic respond to peer review. Be concise, specific and practical.','Summarise the reviewer comments grouped by theme. Flag the highest-risk points and note where reviewers disagree.\n\n'+ctxOf(p))}));
+  if(k==='next')aiDo(p.id,'Next steps',async()=>({text:await claude('You are a pragmatic academic writing coach.','Given this writing project, list the five most useful next steps in priority order, one sentence each.\n\n'+ctxOf(p))}));
+  if(k==='drafts')aiDo(p.id,'Draft responses',async()=>{const t=await claude('You draft polite, specific responses to peer reviewers. Return only JSON.','For each reviewer comment that is not done and has no response, draft a response of 2 to 4 sentences. Do not invent data; write [add detail] where the author must supply specifics. Return ONLY a JSON array of {"round":"<review id>","i":<point index>,"response":"..."}.\n\n'+ctxOf(p));
+   const a=t.indexOf('['),b=t.lastIndexOf(']');const drafts=JSON.parse(t.slice(a,b+1));
+   return{drafts,text:drafts.map(x=>{const r=p.reviews.find(r=>r.id===x.round),c=r&&r.points[x.i];return(r?r.reviewer:'Reviewer')+' #'+(x.i+1)+': '+(c?c.comment:'')+'\nDraft response: '+x.response}).join('\n\n')}})},
+ aiApply(d){const p=P(d.id),x=AIX[d.id];let n=0;(x.drafts||[]).forEach(dr=>{const r=p.reviews.find(r=>r.id===dr.round),c=r&&r.points[dr.i];if(c&&!c.response){c.response=dr.response;n++}});save();toast(n+' draft response'+(n===1?'':'s')+' added. Review before sending.')},
+ aiCopy(d){navigator.clipboard.writeText((AIX[d.id]||{}).text||'').then(()=>toast('Copied'))},
+ async calSync(){const items=calItems();if(!items.length)return toast('Nothing to sync');let ok=0;
+  try{const base='https://www.googleapis.com/calendar/v3/calendars/primary/events';
+   for(const x of items){const id='wf'+hex(x.id+'-'+x.k+'-'+(x.key||''));const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10);
+    const body={id,summary:x.t+(x.k==='dl'?'':' - '+x.s),description:'From WriteFlow',start:{date:x.d},end:{date:nx},reminders:{useDefault:false,overrides:[{method:'popup',minutes:900}]}};
+    const hd={'Content-Type':'application/json',Authorization:'Bearer '+await getToken(primary())};
+    let r=await fetch(base,{method:'POST',headers:hd,body:JSON.stringify(body)});
+    if(r.status===409)r=await fetch(base+'/'+id,{method:'PATCH',headers:hd,body:JSON.stringify({...body,status:'confirmed'})});
+    if(!r.ok)throw new Error(((await r.json()).error||{}).message||'Calendar request failed');ok++}
+   toast('Synced '+ok+' items to Google Calendar')}
+  catch(e){alert('Calendar sync stopped after '+ok+' item(s): '+e.message+'\n\nEnable the Google Calendar API in your Cloud project, then sign in again and allow calendar access.')}},
+ async backups(){try{const root=await rootFolder(),bf=await ensureFolder('Backups',root);
+   const r=await(await g('https://www.googleapis.com/drive/v3/files?orderBy=name%20desc&pageSize=30&fields=files(id,name)&q='+encodeURIComponent(`'${bf}' in parents and trashed=false and name contains 'writeflow-backup-'`))).json();
+   $('#dlg').innerHTML=`<h3 style="margin-top:0">Restore from backup</h3><p class="mute">A snapshot is saved to Drive (WriteFlow/Backups) after your first sync each day. The last 14 are kept.</p>${r.files.map(f=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="sp">${esc(f.name.replace('writeflow-backup-','').replace('.json',''))}</span><button class="sm" data-a="restoreBackup" data-id="${f.id}">Restore</button></div>`).join('')||'<span class="mute">No backups yet.</span>'}<div class="row" style="margin-top:12px"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`;
+   if(!$('#dlg').open)$('#dlg').showModal()}catch(e){alert(e.message)}},
+ async restoreBackup(d){if(!confirm('Replace current data with this backup?'))return;try{const b=await(await g(`https://www.googleapis.com/drive/v3/files/${d.id}?alt=media`)).json();const keep=state.settings;state=fix(b);state.settings={...b.settings,...keep};$('#dlg').close();save();toast('Backup restored')}catch(e){alert(e.message)}},
  view(d){const p=P(d.id),v=p.versions.find(x=>x.id===d.v);const sib=p.versions.filter(x=>x.doc===v.doc&&x.driveId).sort((a,b)=>a.n-b.n);
   openViewer({acct:acctOf(p),sub:p.title,list:sib.map(x=>({id:x.driveId,label:x.label,name:x.fileName||x.doc})),idx:Math.max(0,sib.findIndex(x=>x.id===v.id))})},
  brView(d){const f=BR.files.find(x=>x.id===d.id);$('#dlg').close();openViewer({acct:BR.acct,id:f.id,title:f.name})},
@@ -448,7 +530,7 @@ const A={
  delSub(d){const p=P(d.id);p.submissions=p.submissions.filter(s=>s.id!==d.s);save()}};
 function revForm(p,r){openForm(r?'Edit review round':'New review round',[{name:'reviewer',label:'Reviewer / source',def:'Reviewer 1',req:1},{name:'round',label:'Round',type:'number',def:1},{name:'received',label:'Received',type:'date',def:today()},{name:'due',label:'Response due',type:'date'},{name:'decision',label:'Decision',type:'select',options:DECISIONS},{name:'summary',label:'Summary',type:'textarea',full:1}],r,o=>{
  if(r)Object.assign(r,o);else p.reviews.push({id:uid(),...o,points:[]});save()})}
-function subForm(p,s){openForm('Submission',[{name:'venue',label:'Venue / funder',def:p.venue,req:1},{name:'date',label:'Submitted on',type:'date',def:today()},{name:'status',label:'Status',type:'select',options:SUBST},{name:'decisionDate',label:'Decision date',type:'date'},{name:'notes',label:'Notes / manuscript ID',type:'textarea',full:1}],s,o=>{
+function subForm(p,s,pre){openForm('Submission',[{name:'venue',label:'Venue / funder',def:p.venue,req:1,list:state.venues.map(v=>v.name)},{name:'date',label:'Submitted on',type:'date',def:today()},{name:'status',label:'Status',type:'select',options:SUBST},{name:'decisionDate',label:'Decision date',type:'date'},{name:'notes',label:'Notes / manuscript ID',type:'textarea',full:1}],s||pre,o=>{
  if(s)Object.assign(s,o);else p.submissions.push({id:uid(),...o});save()})}
 
 /* ---------- Drive browser ---------- */
@@ -483,17 +565,111 @@ function dl(blob,name){const a=document.createElement('a');a.href=URL.createObje
 let CAL=new Date();CAL.setDate(1);
 function calItems(){const it=[];state.projects.filter(isActive).forEach(p=>{
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
- p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task'}));
- p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev'}))});return it}
+ if(p.type==='Grant proposal'&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
+ p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
+ p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev',key:r.id}))});return it}
 function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems();
  const off=(new Date(y,m,1).getDay()+6)%7,dim=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+dim)/7)*7;
  const pad=n=>String(n).padStart(2,'0');let h='';
  for(let i=0;i<cells;i++){const dn=i-off+1;if(dn<1||dn>dim){h+='<div style="background:var(--bg);min-height:92px"></div>';continue}
   const iso=`${y}-${pad(m+1)}-${pad(dn)}`;const its=items.filter(x=>x.d===iso);
   h+=`<div style="min-height:92px;padding:4px;background:var(--card);${iso===today()?'outline:2px solid var(--brand);':''}"><div class="mute" style="font-size:12px">${dn}</div>${its.map(x=>`<a href="#/p/${x.id}/${x.tab||'overview'}" title="${esc(x.s)}" style="display:block;font-size:11px;margin:2px 0;padding:1px 4px;border-radius:4px;background:${x.k==='dl'?'var(--bad)':x.k==='rev'?'var(--warn)':'var(--chip)'};color:${x.k==='task'?'var(--ink)':'#fff'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(x.t)}</a>`).join('')}</div>`}
- return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="exportIcs">Export .ics</button></div>
+ return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="exportIcs">Export .ics</button><button data-a="calSync">Sync to Google Calendar</button></div>
  <div class="card" style="padding:0;overflow:hidden"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line)">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="mute" style="background:var(--card);padding:4px;font-size:12px">${d}</div>`).join('')}${h}</div></div>
  <p class="mute">Red = project deadline · Orange = review response due · Grey = task. The .ics file is a snapshot you can import into Google Calendar.</p>`}
+
+/* ---------- People, venues, funding, log, assistant ---------- */
+const cname=id=>(state.contacts.find(c=>c.id===id)||{name:'(removed)'}).name;
+const hex=t=>Array.from(new TextEncoder().encode(t)).map(b=>b.toString(16).padStart(2,'0')).join('');
+const ROLES=['Lead author','Co-author','Contributor','Supervisor','Editor','Reviewer','Funder contact','Partner'];
+function people(){const rows=state.contacts.slice().sort((a,b)=>a.name.localeCompare(b.name));
+ return`<div class="top"><h2>People</h2><button class="pri" data-a="addPerson">Add person</button></div>
+ ${rows.length?`<div class="card"><table><tr><th>Name</th><th>Affiliation</th><th>Email</th><th>ORCID</th><th>Writings</th><th></th></tr>${rows.map(c=>{const n=state.projects.filter(p=>p.team.some(m=>m.cid===c.id)).length;return`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.org)}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${c.orcid?`<a target="_blank" rel="noopener" href="https://orcid.org/${esc(c.orcid)}">${esc(c.orcid)}</a>`:''}</td><td>${n}</td><td><button class="sm" data-a="editPerson" data-id="${c.id}">Edit</button> <button class="sm danger" data-a="delPerson" data-id="${c.id}">Delete</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No collaborators yet. Add co-authors, editors and funder contacts, then put them on a writing and assign tasks.</div>'}`}
+function personForm(c,cb){openForm(c?'Edit person':'Add person',[{name:'name',label:'Name',req:1,full:1},{name:'org',label:'Affiliation'},{name:'email',label:'Email',type:'email'},{name:'orcid',label:'ORCID (0000-0000-0000-0000)'},{name:'notes',label:'Notes',type:'textarea',full:1}],c,o=>{
+ if(c)Object.assign(c,o);else{c={id:uid(),...o};state.contacts.push(c)}save();if(cb)cb(c)})}
+function team(p){
+ return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab.</p></div>
+ ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
+
+const VKINDS=['Journal','Conference','Funder','Publisher'];
+function venues(){const rows=state.venues.slice().sort((a,b)=>(a.kind+a.name).localeCompare(b.kind+b.name));
+ const used=n=>state.projects.reduce((c,p)=>c+p.submissions.filter(s=>s.venue===n).length,0);
+ return`<div class="top"><h2>Venues and funders</h2><button class="pri" data-a="addVenue">Add venue</button></div>
+ ${rows.length?`<div class="card"><table><tr><th>Name</th><th>Kind</th><th>Scope</th><th>Fee</th><th>Turnaround</th><th>Next deadline</th><th>Submissions</th><th></th></tr>${rows.map(v=>`<tr><td>${safeUrl(v.url)?`<a target="_blank" rel="noopener" href="${esc(v.url)}">${esc(v.name)}</a>`:`<b>${esc(v.name)}</b>`}</td><td>${esc(v.kind)}</td><td>${esc(v.scope)}</td><td>${esc(v.fee)}</td><td>${esc(v.turnaround)}</td><td>${fmt(v.deadline)}</td><td>${used(v.name)}</td><td><button class="sm" data-a="editVenue" data-id="${v.id}">Edit</button> <button class="sm danger" data-a="delVenue" data-id="${v.id}">Delete</button></td></tr>`).join('')}</table></div>`:'<div class="card empty">Keep a shortlist of journals, conferences, publishers and funders with scope, fees and turnaround. After a rejection, the Submissions tab suggests where to send next.</div>'}`}
+function venueForm(v){openForm(v?'Edit venue':'Add venue',[{name:'name',label:'Name',req:1,full:1},{name:'kind',label:'Kind',type:'select',options:VKINDS},{name:'url',label:'Website'},{name:'scope',label:'Scope / focus',full:1},{name:'fee',label:'Fee'},{name:'turnaround',label:'Typical turnaround'},{name:'deadline',label:'Next deadline',type:'date'},{name:'notes',label:'Notes',type:'textarea',full:1}],v,o=>{
+ if(v)Object.assign(v,o);else state.venues.push({id:uid(),...o});save()})}
+const KINDFOR={'Grant proposal':'Funder','Journal article':'Journal','Conference paper':'Conference','Book chapter':'Publisher','Book':'Publisher'};
+function suggest(p){const k=KINDFOR[p.type],used=new Set(p.submissions.map(s=>s.venue));
+ const c=state.venues.filter(v=>(!k||v.kind===k)&&!used.has(v.name)).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9')).slice(0,4);
+ if(!c.length)return state.venues.length?'':'<div class="card"><h3>Where to send next</h3><span class="mute">Add journals and funders under Venues to get suggestions here.</span></div>';
+ return`<div class="card"><h3>Where to send next</h3>${c.map(v=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b><br><span class="mute sm2">${esc(v.scope||'')}${v.turnaround?' Turnaround '+esc(v.turnaround)+'.':''}${v.fee?' Fee '+esc(v.fee)+'.':''}</span></span>${v.deadline?`<span class="mute sm2">${fmt(v.deadline)}</span>`:''}<button class="sm" data-a="subFromVenue" data-id="${p.id}" data-v="${v.id}">Log submission</button></div>`).join('')}</div>`}
+function submissions(p){return submissions0(p)+suggest(p)}
+
+const PROBDEF={'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
+const probOf=p=>(p.probability!==''&&p.probability!=null&&!isNaN(+p.probability))?+p.probability:(PROBDEF[p.stage]??10);
+function funding(){const gs=state.projects.filter(p=>p.type==='Grant proposal');const cur={};
+ gs.forEach(p=>{const c=p.currency||'USD',a=+p.amount||0;const o=cur[c]=cur[c]||{req:0,exp:0,won:0};if(isActive(p)){o.req+=a;o.exp+=a*probOf(p)/100}if(p.stage==='Awarded')o.won+=a});
+ const fm=n=>Math.round(n).toLocaleString();
+ return`<div class="top"><h2>Funding pipeline</h2></div>
+ ${Object.keys(cur).length?`<div class="card"><div class="row" style="gap:32px;flex-wrap:wrap">${Object.entries(cur).map(([c,o])=>`<div><div class="ttl" style="font-size:20px">${esc(c)} ${fm(o.exp)}</div><div class="mute sm2">expected, from ${esc(c)} ${fm(o.req)} requested in active bids</div>${o.won?`<div class="mute sm2">${esc(c)} ${fm(o.won)} awarded</div>`:''}</div>`).join('')}</div></div>`:''}
+ ${gs.length?`<div class="card"><table><tr><th>Grant</th><th>Funder</th><th>Stage</th><th>Amount</th><th>Chance</th><th>Expected</th><th>Decision</th></tr>${gs.slice().sort((a,b)=>(a.decisionDate||a.deadline||'9').localeCompare(b.decisionDate||b.deadline||'9')).map(p=>{const a=+p.amount||0,c=p.currency||'USD';return`<tr class="click" data-go="#/p/${p.id}"><td><b>${esc(p.title)}</b></td><td>${esc(p.venue)}</td><td><span class="chip">${esc(p.stage)}</span></td><td>${a?esc(c)+' '+fm(a):'<span class="mute">Not set</span>'}</td><td>${probOf(p)}%</td><td>${a?esc(c)+' '+fm(a*probOf(p)/100):''}</td><td>${fmt(p.decisionDate)}</td></tr>`}).join('')}</table></div>`:'<div class="card empty">No grant proposals yet. Create one, then add the amount and funder under Overview.</div>'}`}
+
+function setWords(p,n){n=Math.max(0,+n||0);if(!p.log.length&&+p.words>0)p.log.push({d:'1970-01-01',w:+p.words});p.words=n;const t=today(),e=p.log.find(x=>x.d===t);if(e)e.w=n;else p.log.push({d:t,w:n});p.log.sort((a,b)=>a.d.localeCompare(b.d))}
+function dailyWords(){const m={};state.projects.forEach(p=>{let prev=null;p.log.forEach(e=>{if(prev!==null&&e.w>prev)m[e.d]=(m[e.d]||0)+(e.w-prev);prev=e.w})});return m}
+function logPanel(){const m=dailyWords(),ds=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);ds.push(isoDate(d))}
+ const vals=ds.map(d=>m[d]||0),mx=Math.max(1,...vals),wk=vals.slice(-7).reduce((a,b)=>a+b,0);
+ let st=0;const d0=new Date();if(!m[today()])d0.setDate(d0.getDate()-1);while(m[isoDate(d0)]>0){st++;d0.setDate(d0.getDate()-1)}
+ return`<section class="panel"><div class="row" style="margin-bottom:12px"><h2 class="sp" style="margin:0">Writing log</h2><button class="sm" data-a="logWords">Log words</button></div><div class="row" style="gap:28px;align-items:flex-end;flex-wrap:wrap"><div><div class="ttl" style="font-size:22px">${st} day${st===1?'':'s'}</div><div class="mute sm2">current streak</div></div><div><div class="ttl" style="font-size:22px">${wk.toLocaleString()}</div><div class="mute sm2">words in the last 7 days</div></div><div class="bars sp" title="Words per day, last 14 days">${vals.map((v,i)=>`<i style="height:${Math.max(3,Math.round(60*v/mx))}px" title="${ds[i]}: ${v} words"></i>`).join('')}</div></div></section>`}
+
+function pubList(){const order=['Journal article','Conference paper','Book chapter','Book','Report / policy brief','Case study','Research'];
+ const ok=p=>['Accepted','In press','Published'].includes(p.stage);
+ const entry=p=>p.citation||`${p.title}.${p.venue?' '+p.venue+'.':''}${p.pubDate?' ('+p.pubDate+').':''}`;
+ const out=order.map(t=>({t,items:state.projects.filter(p=>p.type===t&&ok(p)).sort((a,b)=>(b.pubDate||'').localeCompare(a.pubDate||'')).map(p=>entry(p)+(p.stage!=='Published'?' ['+p.stage+']':''))})).filter(g=>g.items.length);
+ const won=state.projects.filter(p=>p.type==='Grant proposal'&&p.stage==='Awarded').map(p=>`${p.title}.${p.venue?' '+p.venue+'.':''}${p.amount?' '+(p.currency||'USD')+' '+Number(p.amount).toLocaleString()+'.':''}`);
+ if(won.length)out.push({t:'Funded grants',items:won});return out}
+
+let AIX={};
+const aiCfg=()=>{try{return JSON.parse(localStorage.getItem('wf.ai'))||{}}catch(e){return{}}};
+async function claude(system,user){const ai=aiCfg();if(!ai.key)throw new Error('Add your Anthropic API key in Settings first');
+ const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':ai.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:ai.model||'claude-sonnet-5-5',max_tokens:2000,system,messages:[{role:'user',content:user}]})});
+ const j=await r.json();if(!r.ok)throw new Error((j.error&&j.error.message)||'The assistant request failed');return(j.content||[]).map(c=>c.text||'').join('')}
+function ctxOf(p){return JSON.stringify({title:p.title,type:p.type,stage:p.stage,venue:p.venue,deadline:p.deadline,notes:(p.notes||'').slice(0,4000),openTasks:p.tasks.filter(t=>!t.done).map(t=>t.title),reviews:p.reviews.map(r=>({id:r.id,reviewer:r.reviewer,round:r.round,decision:r.decision,summary:r.summary,points:r.points.map((x,i)=>({i,comment:x.comment,response:x.response,done:x.done}))}))})}
+async function aiDo(pid,title,fn){AIX[pid]={busy:1,title};render();try{AIX[pid]={title,...await fn()}}catch(e){AIX[pid]={err:e.message}}render()}
+async function fileText(p,id){const acct=acctOf(p),api='https://www.googleapis.com/drive/v3/files/'+id;
+ const meta=await(await g(api+'?fields=id,name,mimeType',{},acct)).json(),mt=meta.mimeType||'';
+ if(mt==='application/vnd.google-apps.document')return(await g(api+'/export?mimeType=text%2Fplain',{},acct)).text();
+ if(/wordprocessingml/.test(mt)||/\.docx$/i.test(meta.name)){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',()=>window.mammoth);return(await window.mammoth.extractRawText({arrayBuffer:await(await g(api+'?alt=media',{},acct)).arrayBuffer()})).value}
+ if(mt.startsWith('text/')||/\.(txt|md|tex)$/i.test(meta.name))return(await g(api+'?alt=media',{},acct)).text();
+ throw new Error('Text can be read from Google Docs, Word and plain text files. PDF files are not supported here yet.')}
+function assistant(p){const ai=aiCfg(),x=AIX[p.id]||{};
+ if(!ai.key)return'<div class="card empty"><b style="color:var(--ink)">The assistant is off</b><p>Add your Anthropic API key in Settings to summarise reviews, draft responses and check drafts against requirements.</p><button data-a="settings">Open settings</button></div>';
+ const files=p.versions.filter(v=>v.driveId);
+ return`<div class="card"><h3>Ask about this writing</h3><div class="row" style="flex-wrap:wrap"><button data-a="aiRun" data-id="${p.id}" data-k="summary">Summarise review comments</button><button data-a="aiRun" data-id="${p.id}" data-k="drafts">Draft responses to open comments</button><button data-a="aiRun" data-id="${p.id}" data-k="next">Suggest next steps</button></div>
+ <form id="aiform" data-id="${p.id}" style="margin-top:12px"><textarea name="q" placeholder="Ask anything about this writing, for example: how should I frame the contribution for this journal?"></textarea><div class="row" style="margin-top:8px"><button class="pri">Ask</button></div></form></div>
+ <div class="card"><h3>Check a file against requirements</h3><form id="aicheck" data-id="${p.id}" class="form"><div><label>File</label><select name="file">${files.map(v=>`<option value="${v.driveId}">${esc(v.doc)} ${esc(v.label)}: ${esc(v.fileName||'')}</option>`).join('')||'<option value="">No Drive files yet</option>'}</select></div><div class="full"><label>Call, guidelines or reviewer criteria (paste the text)</label><textarea name="req"></textarea></div><div class="full"><button class="pri">Check file</button></div></form></div>
+ ${x.busy?'<div class="card mute">Working…</div>':''}${x.err?`<div class="card" style="color:var(--alert)">${esc(x.err)}</div>`:''}
+ ${x.text?`<div class="card"><div class="row"><h3 class="sp" style="margin:0">${esc(x.title||'Result')}</h3><button class="sm" data-a="aiCopy" data-id="${p.id}">Copy</button>${x.drafts?`<button class="sm pri" data-a="aiApply" data-id="${p.id}">Add drafts to empty responses</button>`:''}</div><div style="white-space:pre-wrap;margin-top:10px">${esc(x.text)}</div></div>`:''}
+ <p class="mute sm2">Text is sent to Anthropic using your key, which stays in this browser. Check every draft before you use it.</p>`}
+document.addEventListener('submit',e=>{const f=e.target;if(f.id!=='aiform'&&f.id!=='aicheck')return;e.preventDefault();
+ const p=P(f.dataset.id),fd=Object.fromEntries(new FormData(f));
+ if(f.id==='aiform'){if(!fd.q.trim())return;aiDo(p.id,'Answer',async()=>({text:await claude('You are a thoughtful academic writing assistant. Be concise and specific.',fd.q+'\n\nProject context:\n'+ctxOf(p))}))}
+ else{if(!fd.file||!fd.req.trim())return toast('Choose a file and paste the requirements');
+  aiDo(p.id,'Requirements check',async()=>{const txt=(await fileText(p,fd.file)).slice(0,60000);return{text:await claude('You are a rigorous reviewer checking a draft against requirements. For each requirement say met, partly met or missing, with a short reason.','Requirements:\n'+fd.req+'\n\nDraft text:\n'+txt)}})}});
+document.addEventListener('change',e=>{const t=e.target,d=t.dataset||{};
+ if(d.sel){t.checked?SEL.add(d.sel):SEL.delete(d.sel);render()}
+ else if('selall' in d){document.querySelectorAll('[data-sel]').forEach(x=>{t.checked?SEL.add(x.dataset.sel):SEL.delete(x.dataset.sel)});render()}});
+function notifyDue(force){try{if(!('Notification' in window)||Notification.permission!=='granted'||localStorage.getItem('wf.notify')!=='1')return;
+ const t=today();if(!force&&localStorage.getItem('wf.notified')===t)return;
+ const it=calItems().filter(i=>days(i.d)<=2).sort((a,b)=>a.d.localeCompare(b.d));if(!it.length&&!force)return;localStorage.setItem('wf.notified',t);
+ const od=it.filter(i=>days(i.d)<0).length;
+ new Notification('WriteFlow',{body:it.length?od+' overdue, '+(it.length-od)+' due within 2 days. Next: '+it[0].t:'Nothing due in the next 2 days.'})}catch(e){}}
+async function snapshot(){const t=today();if(localStorage.getItem('wf.snap')===t)return;
+ const root=await rootFolder(),bf=await ensureFolder('Backups',root),b='wfb'+uid();
+ const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:'writeflow-backup-'+t+'.json',parents:[bf]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(state)}\r\n--${b}--`;
+ await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp});
+ localStorage.setItem('wf.snap',t);
+ const r=await(await g('https://www.googleapis.com/drive/v3/files?orderBy=name%20desc&pageSize=100&fields=files(id)&q='+encodeURIComponent(`'${bf}' in parents and trashed=false and name contains 'writeflow-backup-'`))).json();
+ for(const f of r.files.slice(14))await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})})}
 
 /* ---------- File viewer ---------- */
 let VW=null;
@@ -501,7 +677,8 @@ const driveIdFromUrl=u=>{const m=String(u||'').match(/\/d\/([\w-]{15,})|[?&]id=(
 const GAPPS={'application/vnd.google-apps.document':{ex:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',ext:'docx',label:'Word'},
  'application/vnd.google-apps.spreadsheet':{ex:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',ext:'xlsx',label:'Excel'},
  'application/vnd.google-apps.presentation':{ex:'application/vnd.openxmlformats-officedocument.presentationml.presentation',ext:'pptx',label:'PowerPoint'}};
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2600)}
+let UNDO=null;
+function toast(m,undo){const t=$('#toast');t.innerHTML=esc(m)+(undo?' <button class="sm" data-a="undo">Undo</button>':'');t.style.pointerEvents=undo?'auto':'none';t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),undo?9000:2600)}
 function loadScript(src,test){return new Promise((res,rej)=>{if(test())return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Could not load the document reader'));document.head.appendChild(s)})}
 function applyTheme(){const t=localStorage.getItem('wf.theme')||'auto';if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;const b=$('#themeBtn');if(b)b.textContent='Theme: '+t}
 function openViewer(o){closeViewer(true);VW={...o,urls:[]};$('#viewer').classList.add('on');document.body.classList.add('noscroll');loadViewer()}
@@ -582,7 +759,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='brq')
 /* ---------- Global events ---------- */
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-a]');if(b){e.stopPropagation();A[b.dataset.a]?.(b.dataset);return}
- const g=e.target.closest('[data-go]');if(g&&!e.target.closest('button,a'))location.hash=g.dataset.go});
+ const g=e.target.closest('[data-go]');if(g&&!e.target.closest('button,a,input,select'))location.hash=g.dataset.go});
 document.addEventListener('change',e=>{
  const t=e.target;
  if(t.dataset.in){if(t.dataset.in==='boardType')boardType=t.value;else filt[t.dataset.in]=t.type==='checkbox'?t.checked:t.value;render();return}
@@ -594,12 +771,13 @@ document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){fi
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
  const p=P(route().id),fd=Object.fromEntries(new FormData(f));
- if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
- if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false});
+ if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
+ if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||''});
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
 
 applyTheme();render();if(window.google)initGIS();
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>

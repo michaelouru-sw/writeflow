@@ -16,6 +16,15 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Google sign-in gate and multiple Drive accounts: each writing is tied to one account; the primary account holds the app data file
 - In-app file viewer: PDF, Word (.docx), Google Docs/Sheets/Slides (as PDF), images, text, video/audio; other types fall back to Drive's own preview. Switch between versions of the same document inside the viewer
 - Pipeline rail per writing (click a stage to move it), light/dark/auto theme, mobile layout, press N for a new writing
+- Bulk select on All writings: set stage or delete many at once (with Undo)
+- People: contacts, team roles per writing, task assignment
+- Venues: journal/funder shortlist; after a rejection the Submissions tab suggests where to send next
+- Funding pipeline: amount, chance, expected value, decision dates
+- Writing log: log words, daily streak, 14-day chart
+- DOI lookup (Crossref) fills the citation; publication list export (Word or copy)
+- Assistant (optional): summarise reviews, draft responses, check a file against requirements, using your own Anthropic API key (kept in this browser only)
+- Reminders: optional desktop notifications, Google Calendar sync with a 9am reminder the day before
+- Daily Drive backups (last 14 kept) with restore; installable offline app (PWA) with an offline copy mode
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
 ## 1. Deploy on GitHub Pages
@@ -34,6 +43,11 @@ The repo holds only code. Your data lives in your browser and Drive, so a public
 5. Copy the Client ID → WriteFlow → ⚙ Settings → paste → Save → **Connect Drive**.
 
 Scope used: `drive` (full Drive access, needed to browse existing files and folders). Keep the OAuth app in Testing mode and only add yourself as test user.
+
+## Optional extras
+- **Google Calendar sync:** enable the *Google Calendar API* in your Cloud project (APIs & Services → Library). Sign in again to approve calendar access, then Calendar → *Sync to Google Calendar*. Completed items are not removed from the calendar.
+- **Assistant:** Settings → paste an Anthropic API key. Text you send goes to Anthropic with your key; the key is never synced to Drive.
+- **Install as an app:** use your browser's *Install* option on the site. Offline, use *Open offline copy* on the sign-in screen; changes sync when you reconnect.
 
 ## Accounts & sign-in
 - Open the site, click *Sign in with Google*. The first account becomes primary (stores `writeflow-data.json`).
