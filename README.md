@@ -14,6 +14,8 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Checklist templates per type, editable task dates, calendar view with .ics export, response-to-reviewers Word export
 - Import: scan an existing Drive folder tree; each project folder becomes a writing with its files as versions
 - Google sign-in gate and multiple Drive accounts: each writing is tied to one account; the primary account holds the app data file
+- In-app file viewer: PDF, Word (.docx), Google Docs/Sheets/Slides (as PDF), images, text, video/audio; other types fall back to Drive's own preview. Switch between versions of the same document inside the viewer
+- Pipeline rail per writing (click a stage to move it), light/dark/auto theme, mobile layout, press N for a new writing
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
 ## 1. Deploy on GitHub Pages
