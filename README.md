@@ -5,6 +5,7 @@ Writing project manager with publication-style tracking. Static app: runs free o
 ## Features
 - Writings: grants, consultancy bids, awards and nominations, fellowships, articles, conference papers, research, book chapters, books, thesis chapters, case studies, reports, blogs and op-eds, course design
 - Type-specific pipelines (e.g. Idea → Drafting → Submitted → Under review → Revisions → Accepted → Published)
+- Call-driven flow for grants, bids, awards, fellowships and conference papers: Call identified → Go/no-go → Concept note/EOI → Drafting → Internal review → Final checks → Submitted → outcome. Each stage gets a target date between today and the deadline (shown on the stage bar), tasks are tied to stages, the app suggests moving on when a stage's tasks are done, warns when behind schedule and re-plans dates. Add the call link in Overview
 - Board (drag between stages), list, dashboard with deadlines
 - Tasks per writing; due dates are set automatically between today and the deadline (heavier tasks get more time, weekends avoided, submit task on the deadline). Dates you set yourself are never overwritten; *Auto-set dates* fills new tasks, and changing the deadline re-spreads automatic ones
 - Versions: upload files to Drive, auto-numbered per document (Manuscript v1, v2…; Cover letter v1…)

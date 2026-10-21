@@ -77,6 +77,7 @@ tr.click{cursor:pointer}tr.click:hover{background:var(--wash)}
 .rail .nd.done::before,.rail .nd.now::before{background:var(--accent)}
 .rail .nd.now i{border-color:var(--ink);background:var(--mark);box-shadow:0 0 0 3px color-mix(in srgb,var(--mark) 45%,transparent)}
 .rail .nd em{font-style:normal;padding:0 6px;border-radius:4px;white-space:nowrap}
+.rail .nd small{font-size:11px;color:var(--ink2);margin-top:-3px}.rail .nd small.late{color:var(--alert);font-weight:600}
 .rail .nd.now em{background:var(--mark);color:var(--mark-ink);font-weight:600}
 .rail.c{padding:0;gap:5px;align-items:center;overflow:visible}
 .rail.c .nd{flex:0 0 auto;min-width:0;padding:0;gap:0;cursor:default}
@@ -164,21 +165,31 @@ dialog.wide{width:min(860px,95vw)}
 const TYPES=['Grant proposal','Journal article','Conference paper','Research','Book chapter','Book','Case study','Report / policy brief','Consultancy bid','Award / nomination','Fellowship / scholarship','Thesis chapter','Blog / op-ed','Course / curriculum','Other'];
 const FUNDED=['Grant proposal','Consultancy bid','Fellowship / scholarship','Award / nomination'];
 const PIPE={
- 'Consultancy bid':['Opportunity','EOI','Drafting','Internal review','Submitted','Shortlisted','Awarded','Declined'],
- 'Award / nomination':['Idea','Nomination drafting','Evidence gathering','Submitted','Shortlisted','Awarded','Declined'],
- 'Fellowship / scholarship':['Idea','Eligibility check','Drafting','References requested','Submitted','Interview','Awarded','Declined'],
+ 'Consultancy bid':['Call identified','Go / no-go','EOI','Drafting','Internal review','Final checks','Submitted','Shortlisted','Awarded','Declined'],
+ 'Award / nomination':['Call identified','Eligibility check','Evidence gathering','Drafting','Review','Submitted','Shortlisted','Awarded','Declined'],
+ 'Fellowship / scholarship':['Call identified','Eligibility check','References requested','Drafting','Review','Submitted','Interview','Awarded','Declined'],
  'Thesis chapter':['Outline','Drafting','Supervisor review','Revisions','Complete'],
  'Blog / op-ed':['Idea','Drafting','Review','Submitted','Published','Rejected'],
  'Course / curriculum':['Needs analysis','Outline','Drafting','Review','Pilot','Complete'],
- 'Grant proposal':['Idea','Concept note','Drafting','Internal review','Submitted','Awarded','Declined'],
+ 'Grant proposal':['Call identified','Go / no-go','Concept note','Drafting','Internal review','Final checks','Submitted','Under evaluation','Awarded','Declined'],
  'Journal article':['Idea','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','Published','Rejected'],
- 'Conference paper':['Idea','Abstract','Drafting','Internal review','Submitted','Revisions','Accepted','Published','Rejected'],
+ 'Conference paper':['Call identified','Abstract','Drafting','Internal review','Final checks','Submitted','Revisions','Accepted','Published','Rejected'],
  'Research':['Idea','Design','Data collection','Analysis','Writing','Review','Complete'],
  'Book chapter':['Proposal','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published'],
  'Book':['Proposal','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published'],
  'Case study':['Idea','Fieldwork','Drafting','Review','Final'],
  'Report / policy brief':['Idea','Drafting','Review','Final'],
  'Other':['Idea','Drafting','Review','Final']};
+const SMAP={'Idea':'Call identified','Opportunity':'Call identified','Nomination drafting':'Drafting'};
+const CALLTYPES=['Grant proposal','Consultancy bid','Award / nomination','Fellowship / scholarship','Conference paper'];
+function fixStages(s){(s.projects||[]).forEach(p=>{const st=PIPE[p.type];if(st&&!st.includes(p.stage)){const m=CALLTYPES.includes(p.type)?SMAP[p.stage]:null;p.stage=m&&st.includes(m)?m:st[0]}})}
+const MILE={'Call identified':0,'Go / no-go':.06,'Eligibility check':.08,'References requested':.15,'Concept note':.2,'EOI':.2,'Abstract':.2,'Evidence gathering':.4,'Drafting':.7,'Internal review':.85,'Review':.85,'Final checks':.95};
+const STG={
+ 'Grant proposal':{'Read call, guidelines & eligibility':'Call identified','Confirm partners & roles':'Go / no-go','Concept note':'Concept note','Narrative draft':'Drafting','Work plan / logframe':'Drafting','Budget & justification':'Drafting','CVs / team profiles':'Drafting','Supporting annexes & letters':'Drafting','Internal review':'Internal review','Final proofread':'Final checks','Submit & save confirmation':'Submitted'},
+ 'Consultancy bid':{'Read the ToR and eligibility':'Call identified','Decide bid or no-bid':'Go / no-go','Confirm partners and roles':'Go / no-go','Understanding of the assignment':'EOI','Methodology and work plan':'Drafting','Team and CVs':'Drafting','Past experience and references':'Drafting','Financial proposal':'Drafting','Internal review of the full bid':'Internal review','Compliance check against the ToR':'Final checks','Submit before the deadline':'Submitted'},
+ 'Award / nomination':{'Read criteria and eligibility':'Call identified','Confirm nominee and consent':'Eligibility check','Gather evidence and metrics':'Evidence gathering','Testimonials and letters of support':'Evidence gathering','Draft the nomination narrative':'Drafting','Supporting media and links':'Drafting','Review against the criteria':'Review','Submit':'Submitted'},
+ 'Fellowship / scholarship':{'Read the call and criteria':'Call identified','Check eligibility and deadlines':'Eligibility check','Request referee letters':'References requested','Personal statement':'Drafting','Research or study proposal':'Drafting','CV and transcripts':'Drafting','Budget or funding plan':'Drafting','Review against criteria':'Review','Submit':'Submitted','Prepare for interview':'Interview'},
+ 'Conference paper':{'Check call & deadlines':'Call identified','Abstract':'Abstract','Full paper draft':'Drafting','Co-author review':'Internal review','Format to template':'Final checks','Submit':'Submitted','Prepare presentation':'Accepted'}};
 const CLOSED=['Published','Awarded','Declined','Rejected','Final','Complete','In press'];
 const KINDS=['Draft','Shared for review','Submitted','Revised','Final','Reviewer response','Supporting'];
 const DECISIONS=['Pending','Accept','Minor revision','Major revision','Reject','Internal feedback','Funded','Not funded'];
@@ -187,7 +198,7 @@ const SUBST=['Submitted','Under review','Revise & resubmit','Accepted','Rejected
 /* ---------- State ---------- */
 const KEY='writeflow.v1';
 let state=load();
-function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};s.snips=s.snips||[];(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
+function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};s.snips=s.snips||[];fixStages(s);(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return fix(s)}catch(e){}return fix({projects:[],settings:{},updated:0})}
 function save(){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render();scheduleSync()}
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -319,7 +330,7 @@ const prioChip=p=>p.priority==='High'?'<span class="chip bad">High priority</spa
 const prog=p=>{const pct=p.wordTarget?Math.min(100,Math.round(100*(p.words||0)/p.wordTarget)):0;return p.wordTarget?`<div class="bar"><i style="width:${pct}%"></i></div><span class="mute sm2">${p.words||0} / ${p.wordTarget} words</span>`:''};
 function rail(p,compact,ro){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.stage);
  return`<div class="rail${compact?' c':''}">${st.map((x,k)=>{const cls='nd'+(k<i?' done':'')+(k===i?' now':'');
-  return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:ro?`<span class="${cls}" style="cursor:default"><i></i><em>${esc(x)}</em></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em></button>`}).join('')}</div>`}
+  return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:ro?`<span class="${cls}" style="cursor:default"><i></i><em>${esc(x)}</em></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em>${p.ms&&p.ms[x]?`<small class="${k===i&&days(p.ms[x])<0?'late':''}">by ${new Date(p.ms[x]+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</small>`:''}</button>`}).join('')}</div>`}
 let SEL=new Set();
 const wrow=(p,sel)=>`<div class="wrow" data-go="#/p/${p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function dashboard(){
@@ -368,12 +379,18 @@ function library(){
  return`<div class="top"><h2>File library</h2></div>${all.length?`<div class="card"><table><tr><th>File</th><th>Writing</th><th>Document</th><th>Version</th><th>Kind</th><th>Date</th></tr>${all.map(v=>`<tr><td>${v.driveId?`<button class="link" data-a="view" data-id="${v.pid}" data-v="${v.id}">${esc(v.fileName||'Open')}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||'Open')}</a>`:esc(v.fileName||''))}</td><td><a href="#/p/${v.pid}/versions">${esc(v.pt)}</a></td><td>${esc(v.doc)}</td><td>${esc(v.label)}</td><td><span class="chip">${esc(v.kind)}</span></td><td>${fmt(v.date)}</td></tr>`).join('')}</table></div>`:'<div class="card empty">No files yet. Upload a draft from a writing, or import a Drive folder.</div>'}`}
 
 /* ---------- Detail ---------- */
+function flowBanner(p){if(!isActive(p))return'';if(p.deadline&&!p.ms)planMilestones(p);
+ const st=PIPE[p.type]||[],ci=st.indexOf(p.stage),nx=st[ci+1],cur=p.tasks.filter(t=>t.stage===p.stage);let h='';
+ const m=p.ms&&p.ms[p.stage];
+ if(m&&p.stage!=='Submitted'&&days(m)<0)h+=`<div class="card" style="border-color:var(--alert)"><div class="row"><span class="sp"><b>Behind schedule.</b> ${esc(p.stage)} should have finished by ${fmt(m)}.</span><button class="sm" data-a="replan" data-id="${p.id}">Re-plan dates</button></div></div>`;
+ if(nx&&cur.length&&cur.every(t=>t.done))h+=`<div class="card" style="border-color:var(--accent)"><div class="row"><span class="sp">All ${esc(p.stage)} tasks are done.</span><button class="sm pri" data-a="setStage" data-id="${p.id}" data-s="${esc(nx)}">Move to ${esc(nx)}</button></div></div>`;
+ return h}
 function detail(p,tab){
  const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['write','Write with Claude'],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
  const acc=accts().length>1?`<span class="chip">${esc(acctOf(p))}</span>`:'';
  return`<a href="#/list" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
- <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button><a class="btn pri" href="#/p/${p.id}/write">Write with Claude</a></div></div>
- <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>
+ <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}${safeUrl(p.callUrl)?` <a class="chip" target="_blank" rel="noopener" href="${esc(p.callUrl)}">Call</a>`:''}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button><a class="btn pri" href="#/p/${p.id}/write">Write with Claude</a></div></div>
+ <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>${flowBanner(p)}
  <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,write:writeTab,check,research,notes,assistant}[tab]||overview)(p)}`}
 function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('title','Title',p.title,'text','full')}
@@ -382,7 +399,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('venue','Journal / publisher / funder',p.venue)}${fld('deadline','Deadline',p.deadline,'date')}
  ${fld('collaborators','Collaborators / co-authors',p.collaborators)}${fld('tags','Tags (comma-separated)',p.tags)}
  ${fld('wordTarget','Word target',p.wordTarget,'number')}${fld('words','Current words',p.words,'number')}
- ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
+ ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}${fld('callUrl','Call / ToR link',p.callUrl,'text','full')}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
  ${FUNDED.includes(p.type)?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
  <div><label>Derived from (reuse map)</label><select name="parent"><option value="">None</option>${state.projects.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${p.parent===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select></div>
@@ -589,10 +606,11 @@ const A={
  brView(d){const f=BR.files.find(x=>x.id===d.id);$('#dlg').close();openViewer({acct:BR.acct,id:f.id,title:f.name})},
  vwClose:()=>closeViewer(),
  async vwExport(){try{const m=VW.gm,cur=VW.cur;const b=await(await g(`https://www.googleapis.com/drive/v3/files/${cur.id}/export?mimeType=${encodeURIComponent(m.ex)}`,{},VW.acct)).blob();dl(b,(cur.name||'file').replace(/\.[^.]+$/,'')+'.'+m.ext)}catch(e){toast(e.message)}},
- setStage(d){const p=P(d.id);if(p.stage===d.s)return;p.stage=d.s;p.updated=Date.now();save()},
+ setStage(d){const p=P(d.id);if(p.stage===d.s)return;p.stage=d.s;p.updated=Date.now();if(p.deadline)autoPlan(p);save()},
+ replan(d){const p=P(d.id);autoPlan(p);save();toast('Dates re-planned from today')},
  theme(){const o=['auto','light','dark'],t=localStorage.getItem('wf.theme')||'auto';localStorage.setItem('wf.theme',o[(o.indexOf(t)+1)%3]);applyTheme()},
  menu(){document.body.classList.toggle('menu')},
- addTpl(d){const p=P(d.id);const have=new Set(p.tasks.map(t=>t.title));(TEMPLATES[p.type]||[]).forEach(t=>{if(!have.has(t))p.tasks.push({id:uid(),title:t,due:'',done:false})});autoPlan(p);save()},
+ addTpl(d){const p=P(d.id);const have=new Set(p.tasks.map(t=>t.title));(TEMPLATES[p.type]||[]).forEach(t=>{if(!have.has(t))p.tasks.push({id:uid(),title:t,due:'',done:false,stage:(STG[p.type]||{})[t]||''})});autoPlan(p);save()},
  calPrev(){CAL.setMonth(CAL.getMonth()-1);render()},
  calNext(){CAL.setMonth(CAL.getMonth()+1);render()},
  calToday(){CAL=new Date();CAL.setDate(1);render()},
@@ -658,9 +676,9 @@ function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=B
  <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?(BR.mode==='import'?'<button class="pri" data-a="brScan">Scan this folder and import</button>':'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>'):''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
 /* ---------- Templates & calendar ---------- */
 const TEMPLATES={
- 'Consultancy bid':['Read the ToR and eligibility','Decide bid or no-bid','Confirm partners and roles','Understanding of the assignment','Methodology and work plan','Team and CVs','Past experience and references','Financial proposal','Compliance check against the ToR','Submit before the deadline'],
+ 'Consultancy bid':['Read the ToR and eligibility','Decide bid or no-bid','Confirm partners and roles','Understanding of the assignment','Methodology and work plan','Team and CVs','Past experience and references','Financial proposal','Internal review of the full bid','Compliance check against the ToR','Submit before the deadline'],
  'Award / nomination':['Read criteria and eligibility','Confirm nominee and consent','Gather evidence and metrics','Testimonials and letters of support','Draft the nomination narrative','Supporting media and links','Review against the criteria','Submit'],
- 'Fellowship / scholarship':['Check eligibility and deadlines','Request referee letters','Personal statement','Research or study proposal','CV and transcripts','Budget or funding plan','Review against criteria','Submit','Prepare for interview'],
+ 'Fellowship / scholarship':['Read the call and criteria','Check eligibility and deadlines','Request referee letters','Personal statement','Research or study proposal','CV and transcripts','Budget or funding plan','Review against criteria','Submit','Prepare for interview'],
  'Thesis chapter':['Agree the chapter outline with the supervisor','Draft','Check against the research questions','Supervisor review','Revise','Format and references','Submit'],
  'Blog / op-ed':['Define audience and one key message','Outline','Draft','Check facts and sources','Edit and shorten','Submit or publish'],
  'Course / curriculum':['Needs analysis and learner profile','Learning outcomes','Assessment plan','Content outline','Develop materials','Accessibility and quality check','Pilot','Revise and launch'],
@@ -673,10 +691,12 @@ const TEMPLATES={
  'Case study':['Define case & consent','Gather data / interviews','Draft','Participant review','Finalise'],
  'Report / policy brief':['Define audience & key messages','Gather evidence','Draft','Stakeholder review','Design / format','Publish & disseminate'],
  'Other':['Outline','Draft','Review','Finalise']};
-const tplTasks=t=>(TEMPLATES[t]||[]).map(x=>({id:uid(),title:x,due:'',done:false}));
+const tplTasks=t=>(TEMPLATES[t]||[]).map(x=>({id:uid(),title:x,due:'',done:false,stage:(STG[t]||{})[x]||''}));
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
 let CAL=new Date();CAL.setDate(1);
 function calItems(){const it=[];state.projects.filter(isActive).forEach(p=>{
+ if(p.deadline&&!p.ms)planMilestones(p);
+ if(p.ms&&p.ms[p.stage]&&p.stage!=='Submitted')it.push({d:p.ms[p.stage],t:'Finish '+p.stage,s:p.title+' (milestone)',id:p.id,k:'ms',key:'ms'});
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
  if(FUNDED.includes(p.type)&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
  p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
@@ -728,7 +748,7 @@ function suggest(p){const k=KINDFOR[p.type],used=new Set(p.submissions.map(s=>s.
  return`<div class="card"><h3>Where to send next</h3>${c.map(v=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b> ${fitScore(p,v)?`<span class="chip ok">fit ${fitScore(p,v)}</span>`:''}<br><span class="mute sm2">${esc(v.scope||'')}${v.turnaround?' Turnaround '+esc(v.turnaround)+'.':''}${v.fee?' Fee '+esc(v.fee)+'.':''}</span></span>${v.deadline?`<span class="mute sm2">${fmt(v.deadline)}</span>`:''}<button class="sm" data-a="subFromVenue" data-id="${p.id}" data-v="${v.id}">Log submission</button></div>`).join('')}</div>`}
 function submissions(p){return submissions0(p)+suggest(p)}
 
-const PROBDEF={'Opportunity':5,'EOI':10,'Shortlisted':50,'Interview':40,'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
+const PROBDEF={'Call identified':5,'Go / no-go':8,'Final checks':25,'Under evaluation':35,'Opportunity':5,'EOI':10,'Shortlisted':50,'Interview':40,'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
 const probOf=p=>(p.probability!==''&&p.probability!=null&&!isNaN(+p.probability))?+p.probability:(PROBDEF[p.stage]??10);
 function funding(){const gs=state.projects.filter(p=>FUNDED.includes(p.type));const cur={};
  gs.forEach(p=>{const c=p.currency||'USD',a=+p.amount||0;const o=cur[c]=cur[c]||{req:0,exp:0,won:0};if(isActive(p)){o.req+=a;o.exp+=a*probOf(p)/100}if(p.stage==='Awarded')o.won+=a});
@@ -880,18 +900,35 @@ document.addEventListener('submit',e=>{if(e.target.id!=='wrf')return;e.preventDe
 
 /* ---------- Auto-dates ---------- */
 const addDays=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return isoDate(d)};
+const diffDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5);
+function wkAdj(iso,lo,hi){const g=new Date(iso+'T00:00:00').getDay();if(g===6){const f=addDays(iso,-1);return f>=lo?f:iso}if(g===0){const m=addDays(iso,1);return m<=hi?m:iso}return iso}
+function planMilestones(p){p.ms={};const dl=p.deadline,st=PIPE[p.type]||[],si=st.indexOf('Submitted');if(!dl||si<0)return;const ci=Math.max(0,st.indexOf(p.stage));if(ci>si)return;
+ const D=Math.max(0,days(dl)),t0=today();let prev=0;const fr={};st.slice(0,si).forEach(x=>{fr[x]=Math.max(prev,MILE[x]!==undefined?MILE[x]:prev);prev=fr[x]});
+ const f0=ci>0?fr[st[ci-1]]:0,rest=(1-f0)||1;
+ st.slice(ci,si+1).forEach(x=>{const f=x==='Submitted'?1:fr[x];p.ms[x]=x==='Submitted'?dl:wkAdj(addDays(t0,Math.round(D*(f-f0)/rest)),t0,dl)})}
 function autoPlan(p,all){const dl=p.deadline;if(!dl)return 0;
- const open=p.tasks.filter(t=>!t.done&&(all||!t.due||t.auto));if(!open.length)return 0;
- const D=Math.max(0,days(dl)),t0=today();
+ planMilestones(p);
+ let open=p.tasks.filter(t=>!t.done&&(all||!t.due||t.auto));if(!open.length)return 0;
+ const st=PIPE[p.type]||[],ms=p.ms||{},t0=today(),wgt=t=>/draft|narrative|methodolog|write|analy|develop|data collection|work plan|budget|proposal|outline|nomination|evidence|pilot|financial/i.test(t.title)?3:/confirm|read|decide|check|format|upload|request|review/i.test(t.title)?1:2;
+ const staged=open.filter(t=>t.stage&&(ms[t.stage]||st.indexOf(t.stage)<st.indexOf(p.stage)));
+ if(staged.length){let start=t0;
+  st.forEach(x=>{const ts=staged.filter(t=>t.stage===x);
+   if(!ms[x]){ts.forEach(t=>{if(st.indexOf(x)<st.indexOf(p.stage)){t.due=t0;t.auto=true;t.m=Date.now()}});return}
+   const end=ms[x],span=Math.max(0,diffDays(start,end));
+   if(x==='Submitted')ts.forEach(t=>{t.due=end;t.auto=true;t.m=Date.now()});
+   else{const tot=ts.reduce((n,t)=>n+wgt(t),0)||1;let cum=0;ts.forEach(t=>{cum+=wgt(t);t.due=wkAdj(addDays(start,Math.round(span*cum/tot)),t0,end);t.auto=true;t.m=Date.now()})}
+   if(end>start)start=end});
+  open=open.filter(t=>!staged.includes(t));if(!open.length)return staged.length}
+
+ const D=Math.max(0,days(dl));
  const fin=t=>/^(submit|send)\b|submit (before|the|at|by)/i.test(t.title);
  const body=open.filter(t=>!fin(t)),finals=open.filter(fin);
- const heavy=/draft|narrative|methodolog|write|analy|develop|data collection|work plan|budget|proposal|outline|nomination|evidence|pilot|financial/i,light=/confirm|read|decide|check|format|upload|request|review/i;
- const w=t=>heavy.test(t.title)?3:light.test(t.title)?1:2;
+ const w=wgt;
  const span=finals.length&&D>=2?D-1:D,total=body.reduce((n,t)=>n+w(t),0)||1;let cum=0;
- const wk=iso=>{const g=new Date(iso+'T00:00:00').getDay();if(g===6){const f=addDays(iso,-1);return f>=t0?f:iso}if(g===0){const m=addDays(iso,1);return m<=dl?m:iso}return iso};
+ const wk=iso=>wkAdj(iso,t0,dl);
  body.forEach(t=>{cum+=w(t);t.due=wk(addDays(t0,Math.round(span*cum/total)));t.auto=true;t.m=Date.now()});
  finals.forEach(t=>{t.due=dl;t.auto=true;t.m=Date.now()});
- return open.length}
+ return staged.length+open.length}
 /* ---------- Co-author sharing ---------- */
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
 const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
@@ -1256,7 +1293,7 @@ document.addEventListener('change',e=>{
  if(a==='resStatus'){p.research[+t.dataset.i].status=t.value;save();return}
  if(a==='resDate'){p.research[+t.dataset.i].date=t.value;save();return}
  if(a==='resNote'){p.research[+t.dataset.i].note=t.value;save();return}
- if(a==='stage'){p.stage=t.value;save()}
+ if(a==='stage'){p.stage=t.value;if(p.deadline)autoPlan(p);save()}
  if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;k.m=Date.now();save()}
  if(a==='taskDue'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.due=t.value;k.auto=false;k.m=Date.now();save()}});
 document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){filt.q=t.value;const pos=t.selectionStart;render();const i=document.querySelector('[data-in=q]');i.focus();i.setSelectionRange(pos,pos)}});
