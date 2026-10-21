@@ -161,8 +161,15 @@ dialog.wide{width:min(860px,95vw)}
 <script src="https://accounts.google.com/gsi/client" async defer onload="initGIS()"></script>
 <script>
 /* ---------- Config ---------- */
-const TYPES=['Grant proposal','Journal article','Conference paper','Research','Book chapter','Book','Case study','Report / policy brief','Other'];
+const TYPES=['Grant proposal','Journal article','Conference paper','Research','Book chapter','Book','Case study','Report / policy brief','Consultancy bid','Award / nomination','Fellowship / scholarship','Thesis chapter','Blog / op-ed','Course / curriculum','Other'];
+const FUNDED=['Grant proposal','Consultancy bid','Fellowship / scholarship','Award / nomination'];
 const PIPE={
+ 'Consultancy bid':['Opportunity','EOI','Drafting','Internal review','Submitted','Shortlisted','Awarded','Declined'],
+ 'Award / nomination':['Idea','Nomination drafting','Evidence gathering','Submitted','Shortlisted','Awarded','Declined'],
+ 'Fellowship / scholarship':['Idea','Eligibility check','Drafting','References requested','Submitted','Interview','Awarded','Declined'],
+ 'Thesis chapter':['Outline','Drafting','Supervisor review','Revisions','Complete'],
+ 'Blog / op-ed':['Idea','Drafting','Review','Submitted','Published','Rejected'],
+ 'Course / curriculum':['Needs analysis','Outline','Drafting','Review','Pilot','Complete'],
  'Grant proposal':['Idea','Concept note','Drafting','Internal review','Submitted','Awarded','Declined'],
  'Journal article':['Idea','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','Published','Rejected'],
  'Conference paper':['Idea','Abstract','Drafting','Internal review','Submitted','Revisions','Accepted','Published','Rejected'],
@@ -377,7 +384,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('wordTarget','Word target',p.wordTarget,'number')}${fld('words','Current words',p.words,'number')}
  ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
- ${p.type==='Grant proposal'?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
+ ${FUNDED.includes(p.type)?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
  <div><label>Derived from (reuse map)</label><select name="parent"><option value="">None</option>${state.projects.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${p.parent===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select></div>
  <div class="full"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" name="private" ${p.private?'checked':''}> Hide from the public view</label></div>
  <div class="full row"><button class="pri">Save</button><span class="sp"></span><button type="button" class="danger" data-a="delProject" data-id="${p.id}">Delete writing</button></div></form></div>
@@ -385,7 +392,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}?authuser=${encodeURIComponent(acctOf(p))}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
-function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button>${p.type==='Grant proposal'||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
+function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button>${FUNDED.includes(p.type)||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
  <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.link&&/^https:\/\/mail\.google\.com\//.test(t.link)?` <a class="sm2" target="_blank" rel="noopener" href="${esc(t.link)}">email</a>`:''}${t.by?` <span class="chip">added by ${esc(t.by)}</span>`:''}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
 
 function versions(p){
@@ -650,6 +657,12 @@ function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=B
  <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?(BR.mode==='import'?'<button class="pri" data-a="brScan">Scan this folder and import</button>':'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>'):''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
 /* ---------- Templates & calendar ---------- */
 const TEMPLATES={
+ 'Consultancy bid':['Read the ToR and eligibility','Decide bid or no-bid','Confirm partners and roles','Understanding of the assignment','Methodology and work plan','Team and CVs','Past experience and references','Financial proposal','Compliance check against the ToR','Submit before the deadline'],
+ 'Award / nomination':['Read criteria and eligibility','Confirm nominee and consent','Gather evidence and metrics','Testimonials and letters of support','Draft the nomination narrative','Supporting media and links','Review against the criteria','Submit'],
+ 'Fellowship / scholarship':['Check eligibility and deadlines','Request referee letters','Personal statement','Research or study proposal','CV and transcripts','Budget or funding plan','Review against criteria','Submit','Prepare for interview'],
+ 'Thesis chapter':['Agree the chapter outline with the supervisor','Draft','Check against the research questions','Supervisor review','Revise','Format and references','Submit'],
+ 'Blog / op-ed':['Define audience and one key message','Outline','Draft','Check facts and sources','Edit and shorten','Submit or publish'],
+ 'Course / curriculum':['Needs analysis and learner profile','Learning outcomes','Assessment plan','Content outline','Develop materials','Accessibility and quality check','Pilot','Revise and launch'],
  'Grant proposal':['Read call, guidelines & eligibility','Confirm partners & roles','Concept note','Narrative draft','Work plan / logframe','Budget & justification','CVs / team profiles','Supporting annexes & letters','Internal review','Final proofread','Submit & save confirmation'],
  'Journal article':['Select target journal & check scope','Outline & abstract','Draft introduction & methods','Draft results & discussion','References check','Co-author review','Format to journal guidelines','Cover letter','Ethics / data statements','Submit & save confirmation'],
  'Conference paper':['Check call & deadlines','Abstract','Full paper draft','Format to template','Co-author review','Submit','Prepare presentation'],
@@ -664,7 +677,7 @@ function dl(blob,name){const a=document.createElement('a');a.href=URL.createObje
 let CAL=new Date();CAL.setDate(1);
 function calItems(){const it=[];state.projects.filter(isActive).forEach(p=>{
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
- if(p.type==='Grant proposal'&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
+ if(FUNDED.includes(p.type)&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
  p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
  p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev',key:r.id}))});return it}
 function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems();
@@ -707,16 +720,16 @@ const PUBTPL={
  'Web of Conferences':['Download the current EDP Sciences template (Word or LaTeX)','Check page limit and A4 layout','Abstract and keywords per template','Required reference style','Figure quality and captions','Copyright or licence form','Export to PDF and check fonts are embedded','Submit through the conference system by the deadline']};
 const PACK=['Cover letter','Organisation profile (from Boilerplate)','Technical proposal final read-through','Budget and justification checked against the call','Current CVs of key personnel','Past engagements and references','Registration, tax and legal documents','Letters of support or partner commitments','Compliance requirements all ticked (Check tab)','Test upload on the submission portal','Submit at least one day before the deadline'];
 const fitScore=(p,v)=>{const w=t=>new Set(String(t||'').toLowerCase().match(/[a-z]{4,}/g)||[]),a=w(p.title+' '+p.tags+' '+String(p.notes||'').slice(0,500)),b=w(v.scope+' '+(v.keywords||'')+' '+v.name);let n=0;a.forEach(x=>{if(b.has(x))n++});return n};
-const KINDFOR={'Grant proposal':'Funder','Journal article':'Journal','Conference paper':'Conference','Book chapter':'Publisher','Book':'Publisher'};
+const KINDFOR={'Consultancy bid':'Funder','Award / nomination':'Funder','Fellowship / scholarship':'Funder','Grant proposal':'Funder','Journal article':'Journal','Conference paper':'Conference','Book chapter':'Publisher','Book':'Publisher'};
 function suggest(p){const k=KINDFOR[p.type],used=new Set(p.submissions.map(s=>s.venue));
  const c=state.venues.filter(v=>(!k||v.kind===k)&&!used.has(v.name)).sort((a,b)=>fitScore(p,b)-fitScore(p,a)||(a.deadline||'9').localeCompare(b.deadline||'9')).slice(0,4);
  if(!c.length)return state.venues.length?'':'<div class="card"><h3>Where to send next</h3><span class="mute">Add journals and funders under Venues to get suggestions here.</span></div>';
  return`<div class="card"><h3>Where to send next</h3>${c.map(v=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b> ${fitScore(p,v)?`<span class="chip ok">fit ${fitScore(p,v)}</span>`:''}<br><span class="mute sm2">${esc(v.scope||'')}${v.turnaround?' Turnaround '+esc(v.turnaround)+'.':''}${v.fee?' Fee '+esc(v.fee)+'.':''}</span></span>${v.deadline?`<span class="mute sm2">${fmt(v.deadline)}</span>`:''}<button class="sm" data-a="subFromVenue" data-id="${p.id}" data-v="${v.id}">Log submission</button></div>`).join('')}</div>`}
 function submissions(p){return submissions0(p)+suggest(p)}
 
-const PROBDEF={'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
+const PROBDEF={'Opportunity':5,'EOI':10,'Shortlisted':50,'Interview':40,'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
 const probOf=p=>(p.probability!==''&&p.probability!=null&&!isNaN(+p.probability))?+p.probability:(PROBDEF[p.stage]??10);
-function funding(){const gs=state.projects.filter(p=>p.type==='Grant proposal');const cur={};
+function funding(){const gs=state.projects.filter(p=>FUNDED.includes(p.type));const cur={};
  gs.forEach(p=>{const c=p.currency||'USD',a=+p.amount||0;const o=cur[c]=cur[c]||{req:0,exp:0,won:0};if(isActive(p)){o.req+=a;o.exp+=a*probOf(p)/100}if(p.stage==='Awarded')o.won+=a});
  const fm=n=>Math.round(n).toLocaleString();
  return`<div class="top"><h2>Funding pipeline</h2></div>
@@ -734,7 +747,7 @@ function pubList(){const order=['Journal article','Conference paper','Book chapt
  const ok=p=>['Accepted','In press','Published'].includes(p.stage);
  const entry=p=>p.citation||`${p.title}.${p.venue?' '+p.venue+'.':''}${p.pubDate?' ('+p.pubDate+').':''}`;
  const out=order.map(t=>({t,items:state.projects.filter(p=>p.type===t&&ok(p)).sort((a,b)=>(b.pubDate||'').localeCompare(a.pubDate||'')).map(p=>entry(p)+(p.stage!=='Published'?' ['+p.stage+']':''))})).filter(g=>g.items.length);
- const won=state.projects.filter(p=>p.type==='Grant proposal'&&p.stage==='Awarded').map(p=>`${p.title}.${p.venue?' '+p.venue+'.':''}${p.amount?' '+(p.currency||'USD')+' '+Number(p.amount).toLocaleString()+'.':''}`);
+ const won=state.projects.filter(p=>FUNDED.includes(p.type)&&p.stage==='Awarded').map(p=>`${p.title}.${p.venue?' '+p.venue+'.':''}${p.amount?' '+(p.currency||'USD')+' '+Number(p.amount).toLocaleString()+'.':''}`);
  if(won.length)out.push({t:'Funded grants',items:won});return out}
 
 let AIX={};
@@ -1030,7 +1043,7 @@ function insights(){
  const types=[...new Set(subs.map(x=>x.type))].map(t=>{const a=subs.filter(x=>x.type===t),acc=a.filter(x=>x.status==='Accepted').length,rej=a.filter(x=>x.status==='Rejected').length;return{t,n:a.length,acc,rej,rate:acc+rej?Math.round(100*acc/(acc+rej)):null}});
  const ven={};subs.filter(x=>x.date&&x.decisionDate).forEach(x=>{const d=Math.round((new Date(x.decisionDate)-new Date(x.date))/864e5);if(d>=0){(ven[x.venue]=ven[x.venue]||[]).push(d)}});
  const vrows=Object.entries(ven).map(([v,a])=>({v,n:a.length,avg:Math.round(a.reduce((s,x)=>s+x,0)/a.length)})).sort((a,b)=>a.avg-b.avg);
- const pipe={};state.projects.filter(p=>p.type==='Grant proposal'&&+p.amount>0).forEach(p=>{const y=(p.decisionDate||p.deadline||'').slice(0,4)||'No date',c=p.currency||'USD',k=y+'|'+c;const r=pipe[k]=pipe[k]||{y,c,req:0,exp:0,won:0};r.req+=+p.amount;r.exp+=+p.amount*probOf(p)/100;if(p.stage==='Awarded')r.won+=+p.amount});
+ const pipe={};state.projects.filter(p=>FUNDED.includes(p.type)&&+p.amount>0).forEach(p=>{const y=(p.decisionDate||p.deadline||'').slice(0,4)||'No date',c=p.currency||'USD',k=y+'|'+c;const r=pipe[k]=pipe[k]||{y,c,req:0,exp:0,won:0};r.req+=+p.amount;r.exp+=+p.amount*probOf(p)/100;if(p.stage==='Awarded')r.won+=+p.amount});
  const prow=Object.values(pipe).sort((a,b)=>a.y.localeCompare(b.y));
  const pr=state.settings.promo=state.settings.promo||{mult:5,rows:[{id:'r1',label:'Refereed journal articles',type:'Journal article',min:0},{id:'r2',label:'Conference papers',type:'Conference paper',min:0},{id:'r3',label:'Book chapters',type:'Book chapter',min:0},{id:'r4',label:'Grants won',type:'Grant proposal',min:0}]};
  const cnt=r=>state.projects.filter(p=>p.type===r.type&&DONEST.includes(p.stage)).length;
@@ -1191,7 +1204,7 @@ function findProjects(n,path,out){
  n.folders.forEach(f=>findProjects(f,path.concat(n.name),out))}
 function guessType(s){
  if(/chapter/.test(s))return'Book chapter';if(/\bbooks?\b/.test(s))return'Book';if(/conference|proceedings/.test(s))return'Conference paper';
- if(/grant|bid|proposal|funding|concept note|tender|rfp|consultancy/.test(s))return'Grant proposal';if(/case stud/.test(s))return'Case study';
+ if(/consultancy|tender|rfp|\beoi\b/.test(s))return'Consultancy bid';if(/award|nomination/.test(s))return'Award / nomination';if(/fellowship|scholarship/.test(s))return'Fellowship / scholarship';if(/grant|bid|proposal|funding|concept note/.test(s))return'Grant proposal';if(/case stud/.test(s))return'Case study';
  if(/article|journal|paper|manuscript/.test(s))return'Journal article';if(/research|thesis|dissertation/.test(s))return'Research';
  if(/report|brief/.test(s))return'Report / policy brief';return'Other'}
 function baseName(name){let b=name.replace(/\.[^.]+$/,''),prev;

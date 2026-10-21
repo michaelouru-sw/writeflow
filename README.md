@@ -3,7 +3,7 @@
 Writing project manager with publication-style tracking. Static app: runs free on GitHub Pages, stores files and data in your own Google Drive.
 
 ## Features
-- Writings: grants, articles, conference papers, research, book chapters, books, case studies, reports
+- Writings: grants, consultancy bids, awards and nominations, fellowships, articles, conference papers, research, book chapters, books, thesis chapters, case studies, reports, blogs and op-eds, course design
 - Type-specific pipelines (e.g. Idea → Drafting → Submitted → Under review → Revisions → Accepted → Published)
 - Board (drag between stages), list, dashboard with deadlines
 - Tasks per writing
