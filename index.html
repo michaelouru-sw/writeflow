@@ -58,6 +58,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   <a class="nav" href="#/dashboard" data-n="dashboard">Dashboard</a>
   <a class="nav" href="#/board" data-n="board">Board</a>
   <a class="nav" href="#/list" data-n="list">All writings</a>
+  <a class="nav" href="#/calendar" data-n="calendar">Calendar</a>
   <a class="nav" href="#/library" data-n="library">File library</a>
   <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
   <div class="status mute" id="sync" style="padding:0 8px"></div>
@@ -169,6 +170,7 @@ function render(){const r=route();document.querySelectorAll('aside .nav').forEac
  if(r.page==='p'&&P(r.id))v.innerHTML=detail(P(r.id),r.tab);
  else if(r.page==='board')v.innerHTML=board();
  else if(r.page==='list')v.innerHTML=list();
+ else if(r.page==='calendar')v.innerHTML=calendar();
  else if(r.page==='library')v.innerHTML=library();
  else v.innerHTML=dashboard();
  setSync();bindDrag()}
@@ -239,8 +241,8 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
-function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px"><button class="pri">Add</button></form></div>
- <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}</span><span class="mute">${fmt(t.due)}</span>${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
+function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px"><button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button></form></div>
+ <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}</span><input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
 
 function versions(p){
  const docs=[...new Set(p.versions.map(v=>v.doc))];
@@ -250,7 +252,7 @@ function versions(p){
 
 function reviews(p){return`<div class="card"><button class="pri" data-a="addReview" data-id="${p.id}">+ Add review / feedback round</button></div>
  ${p.reviews.map(r=>{const open=r.points.filter(x=>!x.done).length;return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Round ${esc(r.round)} · ${esc(r.reviewer)} <span class="chip ${/Accept|Funded/.test(r.decision)?'ok':/Reject|Not/.test(r.decision)?'bad':''}">${esc(r.decision)}</span></h3>
-  <button class="sm" data-a="copyLetter" data-id="${p.id}" data-r="${r.id}">Copy response letter</button><button class="sm" data-a="editReview" data-id="${p.id}" data-r="${r.id}">Edit</button><button class="sm danger" data-a="delReview" data-id="${p.id}" data-r="${r.id}">✕</button></div>
+  <button class="sm" data-a="copyLetter" data-id="${p.id}" data-r="${r.id}">Copy response letter</button><button class="sm" data-a="dlLetter" data-id="${p.id}" data-r="${r.id}">Word</button><button class="sm" data-a="editReview" data-id="${p.id}" data-r="${r.id}">Edit</button><button class="sm danger" data-a="delReview" data-id="${p.id}" data-r="${r.id}">✕</button></div>
   <div class="mute">Received ${fmt(r.received)} · Response due ${fmt(r.due)} ${open?dueChip(r.due):''} · ${open} open point(s)</div>${r.summary?`<p>${esc(r.summary)}</p>`:''}
   ${r.points.map((x,i)=>`<div class="pt ${x.done?'done':''}"><div class="row"><b class="sp">#${i+1} ${esc(x.comment)}</b><button class="sm" data-a="editPoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">Respond</button><button class="sm" data-a="togglePoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">${x.done?'Reopen':'Mark done'}</button></div>${x.response?`<div class="mute">↳ ${esc(x.response)}</div>`:''}</div>`).join('')}
   <button class="sm" data-a="addPoint" data-id="${p.id}" data-r="${r.id}">+ Add comment</button></div>`}).join('')}`}
@@ -269,7 +271,7 @@ const A={
  exportJson(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='writeflow-backup-'+today()+'.json';a.click()},
  importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=s;state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
  newProject(){openForm('New writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'collaborators',label:'Collaborators'}],{},o=>{
-  const p={id:uid(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:[],versions:[],reviews:[],submissions:[]};
+  const p={id:uid(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[]};
   state.projects.push(p);location.hash='#/p/'+p.id;save()})},
  delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){state.projects=state.projects.filter(p=>p.id!==d.id);location.hash='#/list';save()}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);save()},
@@ -285,6 +287,19 @@ const A={
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link});save()})},
  browse(d){BR={mode:'',pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ addTpl(d){const p=P(d.id);const have=new Set(p.tasks.map(t=>t.title));(TEMPLATES[p.type]||[]).forEach(t=>{if(!have.has(t))p.tasks.push({id:uid(),title:t,due:'',done:false})});save()},
+ calPrev(){CAL.setMonth(CAL.getMonth()-1);render()},
+ calNext(){CAL.setMonth(CAL.getMonth()+1);render()},
+ calToday(){CAL=new Date();CAL.setDate(1);render()},
+ exportIcs(){const esc2=t=>String(t).replace(/[\\,;]/g,'\\$&').replace(/\n/g,'\\n');
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
+  const ev=calItems().flatMap((x,i)=>{const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10).replace(/-/g,'');
+   return['BEGIN:VEVENT',`UID:${x.id}-${x.k}-${i}@writeflow`,'DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+x.d.replace(/-/g,''),'DTEND;VALUE=DATE:'+nx,'SUMMARY:'+esc2(x.t+' - '+x.s),'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:WriteFlow','TRIGGER:-P1D','END:VALARM','END:VEVENT']});
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//WriteFlow//EN',...ev,'END:VCALENDAR'].join('\r\n');
+  dl(new Blob([ics],{type:'text/calendar'}),'writeflow-deadlines.ics')},
+ dlLetter(d){const p=P(d.id),r=p.reviews.find(r=>r.id===d.r);
+  const html=`<html><head><meta charset="utf-8"></head><body><h2>Response to ${esc(r.reviewer)} - ${esc(p.title)}</h2><p>Round ${esc(r.round)}</p>${r.points.map((x,i)=>`<p><b>Comment ${i+1}:</b> ${esc(x.comment)}</p><p><b>Response:</b> ${esc(x.response||'[pending]')}</p><hr>`).join('')}</body></html>`;
+  dl(new Blob([html],{type:'application/msword'}),'response-'+p.title.replace(/[^\w]+/g,'_').slice(0,40)+'-R'+r.round+'.doc')},
  importDrive(){BR={mode:'import',pid:'',stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
  async brScan(){const cur=BR.stack[BR.stack.length-1];$('#dlg').innerHTML='<p class="mute">Scanning "'+esc(cur.name)+'"… this can take a minute.</p>';
   try{const tree=await scanTree(cur.id,cur.name,4);const out=[];findProjects(tree,[],out);
@@ -335,6 +350,34 @@ function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=B
  ${BR.msg?`<p style="color:var(--bad)">${esc(BR.msg)}</p>`:''}
  <div style="max-height:50vh;overflow:auto">${BR.files.map(f=>f.mimeType===F?`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><button class="link sp" style="text-align:left" data-a="brOpen" data-id="${f.id}" data-n="${esc(f.name)}">📁 ${esc(f.name)}</button></div>`:`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="sp">📄 ${esc(f.name)}</span>${BR.mode==='import'?'':`<button class="sm" data-a="brLink" data-id="${f.id}">Link as version</button>`}</div>`).join('')||'<span class="mute">Empty.</span>'}</div>
  <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?(BR.mode==='import'?'<button class="pri" data-a="brScan">Scan this folder and import</button>':'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>'):''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
+/* ---------- Templates & calendar ---------- */
+const TEMPLATES={
+ 'Grant proposal':['Read call, guidelines & eligibility','Confirm partners & roles','Concept note','Narrative draft','Work plan / logframe','Budget & justification','CVs / team profiles','Supporting annexes & letters','Internal review','Final proofread','Submit & save confirmation'],
+ 'Journal article':['Select target journal & check scope','Outline & abstract','Draft introduction & methods','Draft results & discussion','References check','Co-author review','Format to journal guidelines','Cover letter','Ethics / data statements','Submit & save confirmation'],
+ 'Conference paper':['Check call & deadlines','Abstract','Full paper draft','Format to template','Co-author review','Submit','Prepare presentation'],
+ 'Research':['Research questions & design','Ethics approval','Instruments ready','Data collection','Data analysis','Write-up','Review'],
+ 'Book chapter':['Confirm editor guidelines & word limit','Outline','Draft','Co-author review','References & permissions','Submit to editor','Respond to editor feedback'],
+ 'Book':['Proposal to publisher','Chapter outline','Draft chapters','Full manuscript review','Permissions & figures','Index & front matter','Submit manuscript'],
+ 'Case study':['Define case & consent','Gather data / interviews','Draft','Participant review','Finalise'],
+ 'Report / policy brief':['Define audience & key messages','Gather evidence','Draft','Stakeholder review','Design / format','Publish & disseminate'],
+ 'Other':['Outline','Draft','Review','Finalise']};
+const tplTasks=t=>(TEMPLATES[t]||[]).map(x=>({id:uid(),title:x,due:'',done:false}));
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
+let CAL=new Date();CAL.setDate(1);
+function calItems(){const it=[];state.projects.filter(isActive).forEach(p=>{
+ if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
+ p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task'}));
+ p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev'}))});return it}
+function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems();
+ const off=(new Date(y,m,1).getDay()+6)%7,dim=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+dim)/7)*7;
+ const pad=n=>String(n).padStart(2,'0');let h='';
+ for(let i=0;i<cells;i++){const dn=i-off+1;if(dn<1||dn>dim){h+='<div style="background:var(--bg);min-height:92px"></div>';continue}
+  const iso=`${y}-${pad(m+1)}-${pad(dn)}`;const its=items.filter(x=>x.d===iso);
+  h+=`<div style="min-height:92px;padding:4px;background:var(--card);${iso===today()?'outline:2px solid var(--brand);':''}"><div class="mute" style="font-size:12px">${dn}</div>${its.map(x=>`<a href="#/p/${x.id}/${x.tab||'overview'}" title="${esc(x.s)}" style="display:block;font-size:11px;margin:2px 0;padding:1px 4px;border-radius:4px;background:${x.k==='dl'?'var(--bad)':x.k==='rev'?'var(--warn)':'var(--chip)'};color:${x.k==='task'?'var(--ink)':'#fff'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(x.t)}</a>`).join('')}</div>`}
+ return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="exportIcs">Export .ics</button></div>
+ <div class="card" style="padding:0;overflow:hidden"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line)">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="mute" style="background:var(--card);padding:4px;font-size:12px">${d}</div>`).join('')}${h}</div></div>
+ <p class="mute">Red = project deadline · Orange = review response due · Grey = task. The .ics file is a snapshot you can import into Google Calendar.</p>`}
+
 /* ---------- Import from Drive folder ---------- */
 let IMP=[];const FOLD='application/vnd.google-apps.folder';
 async function listKids(id){let out=[],tok='';do{const r=await(await g('https://www.googleapis.com/drive/v3/files?pageSize=200&fields=nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime)&q='+encodeURIComponent(`'${id}' in parents and trashed=false`)+(tok?'&pageToken='+tok:''))).json();out=out.concat(r.files);tok=r.nextPageToken||''}while(tok);return out}
@@ -380,7 +423,8 @@ document.addEventListener('change',e=>{
  if(t.dataset.in){if(t.dataset.in==='boardType')boardType=t.value;else filt[t.dataset.in]=t.type==='checkbox'?t.checked:t.value;render();return}
  const a=t.dataset.aChange;if(!a)return;const p=P(t.dataset.id);
  if(a==='stage'){p.stage=t.value;save()}
- if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;save()}});
+ if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;save()}
+ if(a==='taskDue'){p.tasks.find(x=>x.id===t.dataset.t).due=t.value;save()}});
 document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){filt.q=t.value;const pos=t.selectionStart;render();const i=document.querySelector('[data-in=q]');i.focus();i.setSelectionRange(pos,pos)}});
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
