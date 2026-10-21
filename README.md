@@ -52,6 +52,7 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Settings → paste your Anthropic API key (kept in this browser only). Open any writing → **Write with Claude**.
 - Give it a short brief and the call (upload PDF/Word/text, pick a file already in the writing, or paste). Click **Write proposal**: it reads the call, builds the structure and word limits it asks for, then writes each section using your brief, team, funding amount and Boilerplate library.
 - Facts it does not have become `[ADD: …]` placeholders (counted for you). Edit any section, **Rewrite** one with an instruction, then **Save to Drive as Google Doc** (added as a version) or download Word.
+- **No API key (Claude Pro only)?** Click *Copy prompt for Claude chat*, paste it into claude.ai (attach the call PDF if prompted), then paste the reply into *Paste a reply from Claude chat* and click *Import as draft*. Same editing and save-to-Drive after that.
 - The call, brief and boilerplate are sent to Anthropic with your key and cost API usage. Verify every claim and reference, and check whether the funder allows AI-assisted writing.
 
 ## 1. Deploy on GitHub Pages

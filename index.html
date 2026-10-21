@@ -497,6 +497,22 @@ const A={
   p.versions.push({id:uid(),doc,n,label:'v'+n,kind:'Draft',note:'Written with Claude. Check before use.',date:today(),fileName:f.name,driveId:f.id,link:f.webViewLink});p.updated=Date.now();save();toast('Saved to Drive as a Google Doc')}catch(e){alert('Could not save: '+e.message)}},
  wrWord(d){const p=P(d.id);dl(new Blob([wrHtml(p)],{type:'application/msword'}),p.title.replace(/[\\/:*?"<>|]/g,'-')+' - draft.doc')},
  wrCopy(d){const p=P(d.id);navigator.clipboard.writeText(p.draft.sections.map(x=>x.title+'\n\n'+x.text).join('\n\n')).then(()=>toast('Draft copied'))},
+ async wrPrompt(d){const p=P(d.id),f=$('#wrf'),fd=Object.fromEntries(new FormData(f));let callText=fd.callText||'',note='';
+  try{const fl=fd.file;
+   if(fl&&fl.size){if(/\.pdf$/i.test(fl.name))note=`The call is the PDF "${fl.name}". I will attach it to this chat.`;
+    else if(/\.docx$/i.test(fl.name)){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',()=>window.mammoth);callText+='\n'+(await window.mammoth.extractRawText({arrayBuffer:await fl.arrayBuffer()})).value}
+    else callText+='\n'+await fl.text()}
+   else if(fd.callFile){const acct=acctOf(p),meta=await(await g(DAPI+'/'+fd.callFile+'?fields=name,mimeType',{},acct)).json();
+    if(meta.mimeType==='application/pdf')note=`The call is the PDF "${meta.name}" in Drive. I will download it and attach it to this chat.`;else callText+='\n'+await fileText(p,fd.callFile)}}
+  catch(e){return alert(e.message)}
+  const tone=fd.tone||'formal funder',len={Concise:'Keep it concise.',Standard:'',Detailed:'Be detailed and thorough.'}[fd.length]||'';
+  const secs=(fd.sections||'').split(/\n|;/).map(x=>x.trim()).filter(Boolean);
+  const txt=`You write funding proposals and academic documents on behalf of the applicant. Use ONLY facts found in the brief, boilerplate, team and project data below. Never invent statistics, citations, names, budgets, dates or past results. Where a specific fact is needed and was not provided, write [ADD: what is needed]. Answer the call's evaluation criteria directly and follow its structure and word limits. Write in a ${tone} register. ${len}\n\nWrite the COMPLETE document now. Start each section with a line "## Section title", followed by the body as plain text with short paragraphs, using "- " for bullets. No preamble and no closing remarks.\n\nSECTIONS: ${secs.length?secs.join('; '):"Follow the structure and limits in the call. If the call gives none, use the standard structure for a "+p.type.toLowerCase()+"."}\n\n`+wrCtx(p,{brief:fd.brief,useSnips:!!fd.useSnips})+`CALL / GUIDELINES:\n${note||callText.slice(0,70000)||'(none provided)'}\n`;
+  navigator.clipboard.writeText(txt).then(()=>toast(note?'Prompt copied. Paste it into claude.ai and attach the PDF.':'Prompt copied. Paste it into claude.ai.'))},
+ wrImport(d){const p=P(d.id),t=($('#wrimp').value||'').trim();if(!t)return toast('Paste the reply first');
+  const parts=[];let cur=null;t.split('\n').forEach(l=>{const m=/^#{1,3}\s+(.+?)\s*$/.exec(l);if(m){cur={title:m[1].replace(/\*+/g,'').trim(),text:''};parts.push(cur)}else if(cur)cur.text+=l+'\n';else if(l.trim()){cur={title:'Draft',text:l+'\n'};parts.push(cur)}});
+  parts.forEach(x=>x.text=x.text.trim());const secs=parts.filter(x=>x.text);if(!secs.length)return toast('No text found');
+  if(p.draft&&!confirm('Replace the current draft?'))return;p.draft={at:Date.now(),sections:secs,opts:{}};p.updated=Date.now();save();toast(secs.length+' sections imported')},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
@@ -818,7 +834,7 @@ async function writeProposal(p,o){const w=WR[p.id]={busy:1,msg:'Reading the call
  catch(e){WR[p.id]={err:e.message};if(p.draft){p.updated=Date.now();save()}else render()}}
 const wrHtml=p=>`<html><head><meta charset="utf-8"><title>${esc(p.title)}</title></head><body><h1>${esc(p.title)}</h1>`+p.draft.sections.map(x=>`<h2>${esc(x.title)}</h2>${mdHtml(x.text)}`).join('')+'</body></html>';
 function writeTab(p){const ai=aiCfg();
- if(!ai.key)return'<div class="card empty"><b style="color:var(--ink)">Connect Claude first</b><p>Paste your Anthropic API key in Settings. It stays in this browser.</p><button data-a="settings">Open settings</button></div>';
+ const hasKey=!!ai.key;
  const w=WR[p.id]||{},d=p.draft,o=p.wr||{},files=p.versions.filter(v=>v.driveId);
  const ph=d?d.sections.reduce((n,x)=>n+(x.text.match(/\[ADD:/g)||[]).length,0):0;
  return`<div class="card"><h3>Write this ${esc(p.type.toLowerCase())} with Claude</h3>
@@ -832,14 +848,16 @@ function writeTab(p){const ai=aiCfg();
  <div><label>Length</label><select name="length">${['Concise','Standard','Detailed'].map(x=>`<option ${x===(o.length||'Standard')?'selected':''}>${x}</option>`).join('')}</select></div>
  <div><label>Tone</label><select name="tone">${['formal funder','academic','plain-English'].map(x=>`<option ${x===(o.tone||'formal funder')?'selected':''}>${x}</option>`).join('')}</select></div>
  <div class="full"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" name="useSnips" ${o.useSnips===false?'':'checked'}> Use my Boilerplate library (${state.snips.length} block${state.snips.length===1?'':'s'})</label></div>
- <div class="full row"><button class="pri" ${w.busy?'disabled':''}>${d?'Write again from scratch':'Write proposal'}</button>${w.busy?'<button type="button" data-a="wrStop" data-id="'+p.id+'">Stop</button>':''}</div></form>
- <p class="mute sm2" style="margin:10px 0 0">The call, your brief, team names and boilerplate are sent to Anthropic with your key. Check every claim, figure and reference before submitting, and check whether the funder allows AI-assisted writing.</p></div>
+ <div class="full row" style="flex-wrap:wrap"><button class="pri" ${w.busy||!hasKey?'disabled':''} title="${hasKey?'':'Needs an API key in Settings'}">${d?'Write again from scratch':'Write proposal'}</button><button type="button" data-a="wrPrompt" data-id="${p.id}">Copy prompt for Claude chat</button>${w.busy?'<button type="button" data-a="wrStop" data-id="'+p.id+'">Stop</button>':''}</div></form>
+ ${hasKey?'':'<p class="mute" style="margin:10px 0 0"><b style="color:var(--ink)">No API key.</b> Use Copy prompt for Claude chat, paste it into claude.ai (your Pro plan), then paste the reply into the box below. Or add an API key in Settings for one-click writing.</p>'}<p class="mute sm2" style="margin:10px 0 0">The call, your brief, team names and boilerplate are sent to Anthropic with your key. Check every claim, figure and reference before submitting, and check whether the funder allows AI-assisted writing.</p></div>
+ <div class="card"><h3>Paste a reply from Claude chat</h3><textarea id="wrimp" style="min-height:90px" placeholder="Paste the full reply here. Sections are split at lines starting with ##"></textarea><div class="row" style="margin-top:8px"><button class="sm pri" data-a="wrImport" data-id="${p.id}">Import as draft</button></div></div>
  ${w.busy?`<div class="card"><b>${esc(w.msg)}</b><div class="bar" style="margin-top:8px"><i style="width:${w.total?Math.round(100*(w.step-1)/w.total):4}%"></i></div></div>`:''}${w.err?`<div class="card" style="color:var(--alert)">${esc(w.err)}</div>`:''}
  ${d?`<div class="card"><div class="row" style="flex-wrap:wrap"><h3 class="sp" style="margin:0">Draft: ${d.sections.length} sections, ${d.sections.reduce((n,x)=>n+wc(x.text),0)} words${ph?`, <span style="color:var(--warn)">${ph} placeholder${ph===1?'':'s'} to fill</span>`:''}</h3><button class="sm pri" data-a="wrSave" data-id="${p.id}">Save to Drive as Google Doc</button><button class="sm" data-a="wrWord" data-id="${p.id}">Word</button><button class="sm" data-a="wrCopy" data-id="${p.id}">Copy</button></div></div>
- ${d.sections.map((x,i)=>`<div class="card"><div class="row"><h3 class="sp" style="margin:0">${esc(x.title)} <span class="mute sm2">${wc(x.text)} words</span></h3><button class="sm" data-a="wrRegen" data-id="${p.id}" data-i="${i}" ${w.busy?'disabled':''}>Rewrite</button></div><textarea style="min-height:${Math.min(420,120+wc(x.text)*0.9)}px;margin-top:8px" data-a-change="wrEdit" data-id="${p.id}" data-i="${i}">${esc(x.text)}</textarea></div>`).join('')}`:''}`}
+ ${d.sections.map((x,i)=>`<div class="card"><div class="row"><h3 class="sp" style="margin:0">${esc(x.title)} <span class="mute sm2">${wc(x.text)} words</span></h3><button class="sm" data-a="wrRegen" data-id="${p.id}" data-i="${i}" ${w.busy||!hasKey?'disabled':''}>Rewrite</button></div><textarea style="min-height:${Math.min(420,120+wc(x.text)*0.9)}px;margin-top:8px" data-a-change="wrEdit" data-id="${p.id}" data-i="${i}">${esc(x.text)}</textarea></div>`).join('')}`:''}`}
 document.addEventListener('submit',e=>{if(e.target.id!=='wrf')return;e.preventDefault();const p=P(route().id),fd=Object.fromEntries(new FormData(e.target));
  if(!fd.brief.trim()&&!fd.callText.trim()&&!(fd.file&&fd.file.size)&&!fd.callFile)return toast('Add a brief or the call first');
  if(WR[p.id]&&WR[p.id].busy)return;
+ if(!aiCfg().key)return toast('Add an API key in Settings, or use Copy prompt for Claude chat');
  if(p.draft&&!confirm('Replace the current draft?'))return;
  const o={brief:fd.brief,callText:fd.callText,callFile:fd.callFile||'',sections:fd.sections,length:fd.length,tone:fd.tone,useSnips:!!fd.useSnips,file:fd.file&&fd.file.size?fd.file:null};
  p.wr={brief:o.brief,callText:o.callText,callFile:o.callFile,sections:o.sections,length:o.length,tone:o.tone,useSnips:o.useSnips};
