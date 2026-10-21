@@ -186,7 +186,7 @@ function dashboard(){
  const open=state.projects.reduce((n,p)=>n+p.reviews.reduce((m,r)=>m+r.points.filter(x=>!x.done).length,0),0);
  const recent=state.projects.flatMap(p=>p.versions.map(v=>({...v,pid:p.id,pt:p.title}))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
  const byType=TYPES.map(t=>({t,n:act.filter(p=>p.type===t).length})).filter(x=>x.n);
- return`<div class="top"><h2>Dashboard</h2><button class="pri" data-a="newProject">+ New writing</button></div>
+ return`<div class="top"><h2>Dashboard</h2><button data-a="importDrive">📥 Import from Drive</button><button class="pri" data-a="newProject">+ New writing</button></div>
  <div class="grid g4"><div class="card stat"><b>${act.length}</b><span>Active writings</span></div>
  <div class="card stat"><b style="color:var(--bad)">${overdue}</b><span>Overdue items</span></div>
  <div class="card stat"><b>${soon}</b><span>Due in 30 days</span></div>
@@ -201,7 +201,7 @@ function list(){
  const rows=state.projects.filter(p=>(filt.showClosed||isActive(p))&&(!filt.type||p.type===filt.type)&&(!filt.q||(p.title+p.venue+p.tags+p.collaborators).toLowerCase().includes(filt.q.toLowerCase())))
   .sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
  return`<div class="top"><h2>All writings</h2><input style="width:200px" placeholder="Search…" value="${esc(filt.q)}" data-in="q"><select style="width:170px" data-in="type"><option value="">All types</option>${TYPES.map(t=>`<option ${filt.type===t?'selected':''}>${t}</option>`).join('')}</select>
- <label class="row"><input type="checkbox" style="width:auto" ${filt.showClosed?'checked':''} data-in="showClosed"> closed</label><button class="pri" data-a="newProject">+ New</button></div>
+ <label class="row"><input type="checkbox" style="width:auto" ${filt.showClosed?'checked':''} data-in="showClosed"> closed</label><button data-a="importDrive">📥 Import from Drive</button><button class="pri" data-a="newProject">+ New</button></div>
  <div class="card"><table><tr><th>Title</th><th>Type</th><th>Stage</th><th>Venue / funder</th><th>Deadline</th><th>Progress</th></tr>${rows.map(p=>`<tr class="click" data-go="#/p/${p.id}"><td><b>${esc(p.title)}</b><br>${prioChip(p)}</td><td>${esc(p.type)}</td><td><span class="chip">${esc(p.stage)}</span></td><td>${esc(p.venue)}</td><td>${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</td><td style="width:110px">${prog(p)}</td></tr>`).join('')||'<tr><td colspan=6 class="mute">No writings match.</td></tr>'}</table></div>`}
 const prioChip=p=>p.priority==='High'?'<span class="chip bad">High</span>':'';
 const prog=p=>{const pct=p.wordTarget?Math.min(100,Math.round(100*(p.words||0)/p.wordTarget)):0;return p.wordTarget?`<div class="bar"><i style="width:${pct}%"></i></div><span class="mute">${p.words||0}/${p.wordTarget}</span>`:''};
@@ -284,7 +284,16 @@ const A={
  linkVersion(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link});save()})},
- browse(d){BR={pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ browse(d){BR={mode:'',pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ importDrive(){BR={mode:'import',pid:'',stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ async brScan(){const cur=BR.stack[BR.stack.length-1];$('#dlg').innerHTML='<p class="mute">Scanning "'+esc(cur.name)+'"… this can take a minute.</p>';
+  try{const tree=await scanTree(cur.id,cur.name,4);const out=[];findProjects(tree,[],out);
+   const have=new Set(state.projects.map(p=>p.folderId).filter(Boolean));
+   IMP=out.map(o=>({...o,title:o.name,type:guessType((o.path.join(' ')+' '+o.name).toLowerCase()),on:!have.has(o.id),dup:have.has(o.id)}));impDraw()}
+  catch(e){alert('Scan failed: '+e.message);brDraw()}},
+ impGo(){let n=0;IMP.filter(x=>x.on).forEach(x=>{const st=PIPE[x.type].includes('Drafting')?'Drafting':PIPE[x.type][0];
+   state.projects.push({id:uid(),title:x.title||x.name,type:x.type,stage:st,priority:'Normal',venue:'',deadline:'',collaborators:'',tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:x.id,created:Date.now(),tasks:[],versions:buildVersions(x.files),reviews:[],submissions:[]});n++});
+  $('#dlg').close();location.hash='#/list';save();alert(n+' writing(s) imported.')},
  brOpen(d){BR.q='';BR.stack.push({id:d.id,name:d.n});brLoad()},
  brCrumb(d){BR.q='';BR.stack=BR.stack.slice(0,+d.i+1);brLoad()},
  brSearch(){BR.q=($('#brq').value||'').trim();brLoad()},
@@ -324,8 +333,42 @@ function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=B
  <div class="row" style="margin-bottom:8px"><input id="brq" placeholder="Search by name…" value="${esc(BR.q)}"><button data-a="brSearch">Search</button></div>
  <div class="mute" style="margin-bottom:8px">${BR.stack.map((s,i)=>`<button class="link" data-a="brCrumb" data-i="${i}">${esc(s.name)}</button>`).join(' / ')}${BR.q?' · results for “'+esc(BR.q)+'”':''}</div>
  ${BR.msg?`<p style="color:var(--bad)">${esc(BR.msg)}</p>`:''}
- <div style="max-height:50vh;overflow:auto">${BR.files.map(f=>f.mimeType===F?`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><button class="link sp" style="text-align:left" data-a="brOpen" data-id="${f.id}" data-n="${esc(f.name)}">📁 ${esc(f.name)}</button></div>`:`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="sp">📄 ${esc(f.name)}</span><button class="sm" data-a="brLink" data-id="${f.id}">Link as version</button></div>`).join('')||'<span class="mute">Empty.</span>'}</div>
- <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>':''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
+ <div style="max-height:50vh;overflow:auto">${BR.files.map(f=>f.mimeType===F?`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><button class="link sp" style="text-align:left" data-a="brOpen" data-id="${f.id}" data-n="${esc(f.name)}">📁 ${esc(f.name)}</button></div>`:`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="sp">📄 ${esc(f.name)}</span>${BR.mode==='import'?'':`<button class="sm" data-a="brLink" data-id="${f.id}">Link as version</button>`}</div>`).join('')||'<span class="mute">Empty.</span>'}</div>
+ <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?(BR.mode==='import'?'<button class="pri" data-a="brScan">Scan this folder and import</button>':'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>'):''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
+/* ---------- Import from Drive folder ---------- */
+let IMP=[];const FOLD='application/vnd.google-apps.folder';
+async function listKids(id){let out=[],tok='';do{const r=await(await g('https://www.googleapis.com/drive/v3/files?pageSize=200&fields=nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime)&q='+encodeURIComponent(`'${id}' in parents and trashed=false`)+(tok?'&pageToken='+tok:''))).json();out=out.concat(r.files);tok=r.nextPageToken||''}while(tok);return out}
+async function scanTree(id,name,depth){const kids=await listKids(id);
+ const n={id,name,files:kids.filter(k=>k.mimeType!==FOLD&&!k.mimeType.includes('shortcut')),folders:[]};
+ const fs=kids.filter(k=>k.mimeType===FOLD);
+ n.folders=depth>0?await Promise.all(fs.map(k=>scanTree(k.id,k.name,depth-1))):fs.map(k=>({id:k.id,name:k.name,files:[],folders:[]}));return n}
+const SUBRX=/^(drafts?|versions?|final|submitted|reviews?|supporting|annex(es)?|attachments?|old|archive|budget|references)$/i;
+function allFiles(n,sub=''){return n.files.map(f=>({...f,sub})).concat(...n.folders.map(f=>allFiles(f,f.name)))}
+function findProjects(n,path,out){
+ const isProj=n.files.length||(n.folders.length&&n.folders.every(f=>SUBRX.test(f.name.trim())));
+ if(isProj){out.push({id:n.id,name:n.name,path,files:allFiles(n)});return}
+ n.folders.forEach(f=>findProjects(f,path.concat(n.name),out))}
+function guessType(s){
+ if(/chapter/.test(s))return'Book chapter';if(/\bbooks?\b/.test(s))return'Book';if(/conference|proceedings/.test(s))return'Conference paper';
+ if(/grant|bid|proposal|funding|concept note|tender|rfp|consultancy/.test(s))return'Grant proposal';if(/case stud/.test(s))return'Case study';
+ if(/article|journal|paper|manuscript/.test(s))return'Journal article';if(/research|thesis|dissertation/.test(s))return'Research';
+ if(/report|brief/.test(s))return'Report / policy brief';return'Other'}
+function baseName(name){let b=name.replace(/\.[^.]+$/,''),prev;
+ const rx=/[\s_\-\(\[]*(v\s?\d+(\.\d+)*|final|draft|revised?|copy|\d{4}[-_]?\d{2}[-_]?\d{2}|\(\d+\))[\s_\-\)\]]*$/i;
+ for(let i=0;i<3;i++){prev=b;b=b.replace(rx,'');if(b===prev)break}return b.trim()||name}
+function guessKind(t){t=t.toLowerCase();
+ if(/final/.test(t))return'Final';if(/submit/.test(t))return'Submitted';if(/respon|rebuttal/.test(t))return'Reviewer response';
+ if(/review|comment|feedback/.test(t))return'Shared for review';if(/annex|budget|support|attach|refer/.test(t))return'Supporting';
+ if(/revis/.test(t))return'Revised';return'Draft'}
+function buildVersions(files){const groups={};
+ files.slice().sort((a,b)=>(a.modifiedTime||'').localeCompare(b.modifiedTime||'')).forEach(f=>{const b=baseName(f.name),k=b.toLowerCase();(groups[k]=groups[k]||{doc:b,items:[]}).items.push(f)});
+ return Object.values(groups).flatMap(gp=>gp.items.map((f,i)=>({id:uid(),doc:gp.doc,n:i+1,label:'v'+(i+1),kind:guessKind(f.name+' '+f.sub),note:f.sub?'Folder: '+f.sub:'',date:(f.modifiedTime||'').slice(0,10)||today(),fileName:f.name,driveId:f.id,link:f.webViewLink})))}
+function impDraw(){
+ $('#dlg').innerHTML=`<h3 style="margin-top:0">Review import (${IMP.length} found)</h3><p class="mute">Untick anything you don't want. Edit titles and types. Files stay in Drive.</p>
+ <div style="max-height:55vh;overflow:auto"><table><tr><th></th><th>Title</th><th>Type</th><th>Files</th></tr>${IMP.map((x,i)=>`<tr><td><input type="checkbox" style="width:auto" ${x.on?'checked':''} data-imp="on" data-i="${i}"></td><td><input value="${esc(x.title)}" data-imp="title" data-i="${i}"><div class="mute">${esc(x.path.join(' / '))}${x.dup?' · already imported':''}</div></td><td><select data-imp="type" data-i="${i}">${TYPES.map(t=>`<option ${t===x.type?'selected':''}>${t}</option>`).join('')}</select></td><td>${x.files.length}</td></tr>`).join('')||'<tr><td colspan=4 class="mute">No projects found in this folder.</td></tr>'}</table></div>
+ <div class="row" style="margin-top:12px"><span class="sp"></span><button data-a="closeDlg">Cancel</button><button class="pri" data-a="impGo">Import selected</button></div>`}
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset.imp===undefined)return;const x=IMP[+t.dataset.i],k=t.dataset.imp;x[k]=k==='on'?t.checked:t.value});
+
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='brq'){e.preventDefault();A.brSearch()}});
 
 /* ---------- Global events ---------- */

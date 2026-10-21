@@ -11,6 +11,7 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Reviews: rounds, reviewers, comment-by-comment responses, copyable response letter
 - Submissions log (venue, status, decision)
 - File library across all writings
+- Import: scan an existing Drive folder tree; each project folder becomes a writing with its files as versions
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
 ## 1. Deploy on GitHub Pages
