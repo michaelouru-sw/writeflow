@@ -539,6 +539,8 @@ const A={
   const parts=[];let cur=null;t.split('\n').forEach(l=>{const m=/^#{1,3}\s+(.+?)\s*$/.exec(l);if(m){cur={title:m[1].replace(/\*+/g,'').trim(),text:''};parts.push(cur)}else if(cur)cur.text+=l+'\n';else if(l.trim()){cur={title:'Draft',text:l+'\n'};parts.push(cur)}});
   parts.forEach(x=>x.text=x.text.trim());const secs=parts.filter(x=>x.text);if(!secs.length)return toast('No text found');
   if(p.draft&&!confirm('Replace the current draft?'))return;p.draft={at:Date.now(),sections:secs,opts:{}};p.updated=Date.now();save();toast(secs.length+' sections imported')},
+ shareRetry(d){$('#dlg').close();const p=P(d.id),m=p.team.find(x=>x.cid===d.cid);if(m)shareMember(p,m)},
+ shareManual(d){$('#dlg').close();const p=P(d.id),m=p.team.find(x=>x.cid===d.cid);if(m){m.shared=emailOf(m.cid);m.manual=true;p.shared=true;save();toast('Marked as shared')}},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
@@ -722,7 +724,7 @@ function personForm(c,cb){openForm(c?'Edit person':'Add person',[{name:'name',la
  if(c)Object.assign(c,o);else{c={id:uid(),...o};state.contacts.push(c)}save();if(cb)cb(c)})}
 function team(p){
  return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab. A member with an email gets editor access to this writing's Drive folder and sees the writing under Shared with me.</p></div>${commentsCard(p)}
- ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)} ${m.permId?'<span class="chip ok" title="Editor access to the Drive folder">Editor</span>':`<button class="sm" data-a="shareMem" data-id="${p.id}" data-i="${i}">Give editor access</button>`}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
+ ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)} ${m.permId||m.manual?'<span class="chip ok" title="Editor access to the Drive folder">Editor</span>':`<button class="sm" data-a="shareMem" data-id="${p.id}" data-i="${i}">Give editor access</button>`}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
 
 const VKINDS=['Journal','Conference','Funder','Publisher'];
 function venues(){const rows=state.venues.slice().sort((a,b)=>(a.kind+a.name).localeCompare(b.kind+b.name));
@@ -933,11 +935,19 @@ function autoPlan(p,all){const dl=p.deadline;if(!dl)return 0;
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
 const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
 function addMem(p,cid,role){const m={cid,role};p.team.push(m);save();shareMember(p,m)}
+const errMsg=e=>{const t=String(e&&e.message||e);try{const j=JSON.parse(t);return(j.error&&j.error.message)||t}catch(x){const m=/"message":\s*"([^"]+)"/.exec(t);return m?m[1]:t}};
 async function shareMember(p,m){const em=emailOf(m.cid);if(!em){toast('Add an email to this person to give Drive access');return}
  if(em===String(acctOf(p)).toLowerCase())return;
- try{const folder=await projectFolder(p);
-  const r=await(await g(DAPI+'/'+folder+'/permissions?sendNotificationEmail=true&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em})},acctOf(p))).json();
-  m.permId=r.id;m.shared=em;p.shared=true;save();toast('Editor access given to '+em)}catch(e){alert('Could not share the folder: '+e.message)}}
+ let folder,last;
+ try{folder=await projectFolder(p)}catch(e){return shareFail(p,m,em,'',e)}
+ for(const note of ['true','false']){for(let t=0;t<2;t++){
+  try{const r=await(await g(DAPI+'/'+folder+'/permissions?supportsAllDrives=true&sendNotificationEmail='+note+'&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em})},acctOf(p))).json();
+   m.permId=r.id;m.shared=em;p.shared=true;save();toast('Editor access given to '+em);return}
+  catch(e){last=e;if(!/"code":\s*5\d\d|Internal Error|backend|rate/i.test(String(e.message)))return shareFail(p,m,em,folder,e);await sleep(1500)}}}
+ shareFail(p,m,em,folder,last)}
+function shareFail(p,m,em,folder,e){dlgShow(`<h3 style="margin-top:0">Google could not share the folder</h3><p>${esc(errMsg(e))}</p>
+ <p class="mute">This is often temporary on Google's side. You can retry, or share it yourself: open the folder in Drive, click Share, add <b>${esc(em)}</b> as Editor, then tell WriteFlow it is done.</p>
+ <div class="row" style="flex-wrap:wrap"><button class="pri" data-a="shareRetry" data-id="${p.id}" data-cid="${m.cid}">Retry</button>${folder?`<a class="btn" target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${folder}?authuser=${encodeURIComponent(acctOf(p))}">Open folder in Drive</a>`:''}<button data-a="shareManual" data-id="${p.id}" data-cid="${m.cid}">I shared it manually</button><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
 async function unshareMember(p,m){if(!m.permId||!p.folderId)return;try{await g(DAPI+'/'+p.folderId+'/permissions/'+m.permId,{method:'DELETE'},acctOf(p));toast('Access removed')}catch(e){}}
 function sharedDoc(p){return{v:1,pid:p.id,title:p.title,type:p.type,stage:p.stage,venue:p.venue,deadline:p.deadline,
  tasks:p.tasks.map(t=>({id:t.id,title:t.title,due:t.due||'',done:!!t.done,who:t.who?cname(t.who):'',m:t.m||0,by:t.by||''})),gone:p.gone||[],comments:p.comments||[],
