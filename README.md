@@ -13,6 +13,7 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - File library across all writings
 - Checklist templates per type, editable task dates, calendar view with .ics export, response-to-reviewers Word export
 - Import: scan an existing Drive folder tree; each project folder becomes a writing with its files as versions
+- Google sign-in gate and multiple Drive accounts: each writing is tied to one account; the primary account holds the app data file
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
 ## 1. Deploy on GitHub Pages
@@ -31,6 +32,12 @@ The repo holds only code. Your data lives in your browser and Drive, so a public
 5. Copy the Client ID → WriteFlow → ⚙ Settings → paste → Save → **Connect Drive**.
 
 Scope used: `drive` (full Drive access, needed to browse existing files and folders). Keep the OAuth app in Testing mode and only add yourself as test user.
+
+## Accounts & sign-in
+- Open the site, click *Sign in with Google*. The first account becomes primary (stores `writeflow-data.json`).
+- Settings → *Add Google account* to link more Drives (e.g. work, company, personal). Pick the account per writing on creation, in Overview, or per import.
+- *Sign out* syncs to Drive, then clears this browser's local copy.
+- The sign-in gate protects your Drive data and clears the cache on sign-out; it is not a substitute for locking your device.
 
 ## Notes
 - Each writing gets a subfolder: `WriteFlow/<title>/`.
