@@ -738,7 +738,7 @@ function pubShell(body,page){return`<div class="pubbar"><div class="brand" style
 function renderPublic(){const v=$('#view');
  if(!PUB){v.innerHTML=pubShell(PUBERR?`<div class="card empty">${esc(PUBERR)}</div>`:'<div class="card empty">Loading the shared view…</div>');if(!PUBLOAD&&!PUBERR)pubFetch();return}
  const r=pubRoute(),one=r.page==='p'?PUB.projects.find(x=>x.id===r.id):null;
- v.innerHTML=pubShell(one?pubDetail(one):r.page==='writings'?pubList():pubOverview(),one?'p':r.page);window.scrollTo(0,0)}
+ v.innerHTML=pubShell(one?pubDetail(one):r.page==='writings'?pubWritings():pubOverview(),one?'p':r.page);window.scrollTo(0,0)}
 const pwrow=p=>`<div class="wrow" data-go="${pl('/p/'+p.id)}"><div class="c1"><div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${CLOSED.includes(p.stage)?'':dueChip(p.deadline)}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function pubItems(){const it=[];PUB.projects.filter(p=>!CLOSED.includes(p.stage)).forEach(p=>{
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id});
@@ -754,7 +754,7 @@ function pubOverview(){const act=PUB.projects.filter(p=>!CLOSED.includes(p.stage
  return`<div class="head"><div><h1>Writing dashboard</h1><p class="sub">${act.length} active writing${act.length===1?'':'s'}, ${od.length} overdue, ${soon} due in the next 30 days, ${open} open review point${open===1?'':'s'}.</p></div></div>
  <div class="cols"><section class="panel"><h2>Needs attention</h2>${grp('Overdue',od)}${grp('This week',wk)}${grp('Next 60 days',lt)}${od.length+wk.length+lt.length?'':'<span class="mute">Nothing scheduled.</span>'}</section>
  <section class="panel" style="padding-bottom:6px"><h2>Active writings</h2><div class="wlist" style="border:0;border-radius:0;margin:0 -18px">${sorted.slice(0,8).map(pwrow).join('')||'<div class="empty">No active writings.</div>'}</div>${act.length>8?`<p style="margin:8px 0 10px"><a href="${pl('/writings')}">View all ${act.length}</a></p>`:''}</section></div>`}
-function pubList(){const rows=PUB.projects.filter(p=>(!pf.type||p.type===pf.type)&&(!pf.q||(p.title+p.venue).toLowerCase().includes(pf.q.toLowerCase()))).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+function pubWritings(){const rows=PUB.projects.filter(p=>(!pf.type||p.type===pf.type)&&(!pf.q||(p.title+p.venue).toLowerCase().includes(pf.q.toLowerCase()))).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
  const act=rows.filter(p=>!CLOSED.includes(p.stage)),done=rows.filter(p=>CLOSED.includes(p.stage));
  return`<div class="top"><h2>Writings</h2><input style="width:220px" placeholder="Search" value="${esc(pf.q)}" data-pin="q"><select style="width:170px" data-pin="type"><option value="">All types</option>${TYPES.map(t=>`<option ${pf.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
  ${act.length?`<div class="wlist">${act.map(pwrow).join('')}</div>`:'<div class="card empty">No active writings match.</div>'}
