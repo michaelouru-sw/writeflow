@@ -27,6 +27,12 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Daily Drive backups (last 14 kept) with restore; installable offline app (PWA) with an offline copy mode
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
+## Public view (share a read-only dashboard)
+- Anyone with the link sees the dashboard, upcoming and overdue items, pending tasks, stages, reviews and file names. No sign-in.
+- To open a file, a visitor must sign in to Google (Drive asks them). It only opens if you shared that file or folder with their account. Use a writing's Team tab, *Share Drive folder*.
+- Setup: Cloud Console → Credentials → *API key*, restrict it to **Google Drive API** and to the website `https://michaelouru-sw.github.io/*`. Settings → *Public view* → tick *Share a public view* → paste key → *Save and publish*. Copy the link.
+- It publishes a sanitised `writeflow-public.json` (link-readable) in your WriteFlow Drive folder, refreshed on each sync. Notes, people and amounts are excluded unless you tick them. Tick *Hide from the public view* in a writing's Overview to leave it out. *Stop sharing* revokes the link.
+
 ## 1. Deploy on GitHub Pages
 1. Create a repo (e.g. `writeflow`), upload `index.html` to the root.
 2. Settings → Pages → Source: *Deploy from a branch* → `main` / root → Save.

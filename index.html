@@ -117,6 +117,10 @@ dialog[open]{animation:pop .14s ease-out}@keyframes pop{from{transform:translate
 .bulk{position:sticky;top:0;z-index:6;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:10px;margin-bottom:12px}
 .bulk select{width:auto;background:var(--sheet);color:var(--ink)}.bulk .sp{flex:1}
 .bars{display:flex;align-items:flex-end;gap:4px;height:64px;min-width:160px}.bars i{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:3px}
+.app.pub main{padding:0;max-width:none}
+.pubbar{display:flex;gap:18px;align-items:center;padding:12px clamp(16px,3vw,32px);background:var(--sheet);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.pubbar nav{display:flex;gap:4px}.pubbar nav a{padding:6px 12px;border-radius:var(--r);color:var(--ink2);font-weight:500}.pubbar nav a:hover{background:var(--wash);text-decoration:none}.pubbar nav a.on{background:var(--wash);color:var(--ink)}
+.pubmain{max-width:1100px;margin:0 auto;padding:26px clamp(16px,3vw,32px) 64px}
 </style>
 </head>
 <body>
@@ -231,7 +235,7 @@ async function pushData(){
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
 function scheduleSync(){if(!signedIn||offline)return;clearTimeout(syncTimer);setSync('Drive: saving…');
- syncTimer=setTimeout(async()=>{try{await pushData();snapshot().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
+ syncTimer=setTimeout(async()=>{try{await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
  if(remote&&(remote.updated||0)>state.updated&&(!state.projects.length||confirm("A newer copy exists in Google Drive. Load it? (Cancel keeps this browser's copy and overwrites Drive)"))){
@@ -269,7 +273,9 @@ function openForm(title,fields,vals,cb,extra){
 
 /* ---------- Router & render ---------- */
 function route(){const h=(location.hash||'#/dashboard').slice(2).split('/');return{page:h[0],id:h[1],tab:h[2]||'overview'}}
-function render(){const r=route();
+function render(){if(isPublic()){document.querySelector('.app').classList.add('login','pub');renderPublic();return}
+ document.querySelector('.app').classList.remove('pub');
+ const r=route();
  document.querySelector('.app').classList.toggle('login',!signedIn);
  if(!signedIn){$('#view').innerHTML=loginView();return}document.querySelectorAll('aside .nav').forEach(a=>a.classList.toggle('on',a.dataset.n===r.page||(r.page==='p'&&a.dataset.n==='list')));
  const v=$('#view');
@@ -288,9 +294,9 @@ window.addEventListener('hashchange',render);
 /* ---------- Dashboard ---------- */
 const prioChip=p=>p.priority==='High'?'<span class="chip bad">High priority</span>':'';
 const prog=p=>{const pct=p.wordTarget?Math.min(100,Math.round(100*(p.words||0)/p.wordTarget)):0;return p.wordTarget?`<div class="bar"><i style="width:${pct}%"></i></div><span class="mute sm2">${p.words||0} / ${p.wordTarget} words</span>`:''};
-function rail(p,compact){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.stage);
+function rail(p,compact,ro){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.stage);
  return`<div class="rail${compact?' c':''}">${st.map((x,k)=>{const cls='nd'+(k<i?' done':'')+(k===i?' now':'');
-  return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em></button>`}).join('')}</div>`}
+  return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:ro?`<span class="${cls}" style="cursor:default"><i></i><em>${esc(x)}</em></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em></button>`}).join('')}</div>`}
 let SEL=new Set();
 const wrow=(p,sel)=>`<div class="wrow" data-go="#/p/${p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function dashboard(){
@@ -356,6 +362,7 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
  ${p.type==='Grant proposal'?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
+ <div class="full"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" name="private" ${p.private?'checked':''}> Hide from the public view</label></div>
  <div class="full row"><button class="pri">Save</button><span class="sp"></span><button type="button" class="danger" data-a="delProject" data-id="${p.id}">Delete writing</button></div></form></div>
  <div class="card"><h3>Citation</h3>${p.citation?`<p style="margin:0 0 10px">${esc(p.citation)}</p>`:'<p class="mute" style="margin:0 0 10px">Add a DOI above and save, then look it up to fill the citation.</p>'}<div class="row" style="flex-wrap:wrap"><button class="sm" data-a="doiLookup" data-id="${p.id}">Look up DOI</button><button class="sm" data-a="editCite" data-id="${p.id}">Edit citation</button>${p.citation?`<button class="sm" data-a="copyCite" data-id="${p.id}">Copy</button>`:''}</div></div>
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}?authuser=${encodeURIComponent(acctOf(p))}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
@@ -386,7 +393,8 @@ function notes(p){return`<div class="card"><form id="nt"><textarea name="notes" 
 const A={
  closeDlg:()=>$('#dlg').close(),
  settings(){openForm('Settings',[{name:'clientId',label:'Google OAuth Client ID',full:true}],state.settings,o=>{const c=o.clientId.trim();if(c!==state.settings.clientId){state.settings.clientId=c;tokenClient=null;initGIS()}save()});
-  $('#dlg').insertAdjacentHTML('beforeend',`<h4 style="margin:14px 0 6px">Google accounts (Drives)</h4>${accts().map(a=>`<div class="row" style="padding:4px 0"><span class="sp">${esc(a.email)} ${a.primary?'<span class="chip ok">primary: holds app data</span>':''}</span>${a.primary?'':`<button class="sm" data-a="setPrimary" data-e="${esc(a.email)}">Make primary</button><button class="sm danger" data-a="rmAcct" data-e="${esc(a.email)}">Remove</button>`}</div>`).join('')}<div class="row" style="margin-top:6px"><button class="sm" data-a="addAcct">+ Add Google account</button></div><h4 style="margin:16px 0 6px">Assistant (optional)</h4><p class="mute sm2" style="margin:0 0 6px">Your Anthropic API key stays in this browser and is never synced to Drive.</p><input id="aikey" type="password" placeholder="Anthropic API key" value="${esc(aiCfg().key||'')}"><input id="aimodel" style="margin-top:6px" placeholder="Model" value="${esc(aiCfg().model||'claude-sonnet-5-5')}"><div class="row" style="margin-top:6px"><button class="sm" data-a="saveAI">Save assistant settings</button></div>
+  $('#dlg').insertAdjacentHTML('beforeend',`<h4 style="margin:14px 0 6px">Google accounts (Drives)</h4>${accts().map(a=>`<div class="row" style="padding:4px 0"><span class="sp">${esc(a.email)} ${a.primary?'<span class="chip ok">primary: holds app data</span>':''}</span>${a.primary?'':`<button class="sm" data-a="setPrimary" data-e="${esc(a.email)}">Make primary</button><button class="sm danger" data-a="rmAcct" data-e="${esc(a.email)}">Remove</button>`}</div>`).join('')}<div class="row" style="margin-top:6px"><button class="sm" data-a="addAcct">+ Add Google account</button></div>${pubSettingsHtml()}
+  <h4 style="margin:16px 0 6px">Assistant (optional)</h4><p class="mute sm2" style="margin:0 0 6px">Your Anthropic API key stays in this browser and is never synced to Drive.</p><input id="aikey" type="password" placeholder="Anthropic API key" value="${esc(aiCfg().key||'')}"><input id="aimodel" style="margin-top:6px" placeholder="Model" value="${esc(aiCfg().model||'claude-sonnet-5-5')}"><div class="row" style="margin-top:6px"><button class="sm" data-a="saveAI">Save assistant settings</button></div>
   <h4 style="margin:16px 0 6px">Reminders and backups</h4><div class="row" style="flex-wrap:wrap"><button class="sm" data-a="enableNotify">Enable desktop reminders</button><button class="sm" data-a="backups">Restore from backup</button></div>
   <div class="row" style="margin-top:14px"><button data-a="exportJson">Export JSON</button><button data-a="importJson">Import JSON</button></div>`)},
  addAcct(){addAccount().then(()=>{save();A.settings()}).catch(e=>alert(e.message))},
@@ -416,6 +424,22 @@ const A={
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link,driveId:driveIdFromUrl(o.link)});save()})},
  browse(d){BR={mode:'',acct:acctOf(P(d.id)),pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
+ async savePub(){const o=state.settings.pub=state.settings.pub||{};o.on=$('#pubOn').checked;o.key=($('#pubKey').value||'').trim();
+  o.show={venue:$('#pubV').checked,tasks:$('#pubT').checked,files:$('#pubF').checked,team:$('#pubP').checked,money:$('#pubM').checked};
+  save();if(!o.on)return toast('Public view is off');if(!o.key)toast('Add an API key to get a working link');
+  try{await pushPublic();localStorage.setItem(KEY,JSON.stringify(state));toast('Public view published');A.settings()}catch(e){alert('Could not publish: '+e.message)}},
+ async pubStop(){const o=state.settings.pub||{};try{if(o.fileId)await g('https://www.googleapis.com/drive/v3/files/'+o.fileId+'/permissions/anyoneWithLink',{method:'DELETE'})}catch(e){}
+  o.on=false;o.shared=false;save();toast('Public view turned off');A.settings()},
+ copyPubLink(){navigator.clipboard.writeText($('#publink').value).then(()=>toast('Link copied'))},
+ shareFolder(d){const p=P(d.id);const emails=p.team.map(m=>(state.contacts.find(c=>c.id===m.cid)||{}).email).filter(Boolean);
+  openForm('Share the Drive folder',[{name:'email',label:'Google account email',type:'email',req:1,list:emails,full:1},{name:'role',label:'Access',type:'select',options:['Viewer','Commenter']},{name:'notify',label:'Email them?',type:'select',options:['No email','Send email']}],{},async o=>{
+   const folder=await projectFolder(p);const role=o.role==='Commenter'?'commenter':'reader';
+   await g('https://www.googleapis.com/drive/v3/files/'+folder+'/permissions?sendNotificationEmail='+(o.notify==='Send email'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role,emailAddress:o.email.trim()})},acctOf(p));save();toast('Shared with '+o.email.trim())})},
+ pubPreview(d){const v=$('#viewer'),id=encodeURIComponent(d.id);
+  v.innerHTML=`<div class="vbar"><div class="vt"><b>${esc(d.n||'File')}</b><span class="mute sm2">Google may ask you to sign in. You need access to this file.</span></div><div class="vtools"><a class="btn" target="_blank" rel="noopener" href="https://drive.google.com/file/d/${id}/view">Open in Drive</a><button data-a="pubClose">Close</button></div></div><div class="vbody"><iframe class="vframe" src="https://drive.google.com/file/d/${id}/preview"></iframe></div>`;
+  v.classList.add('on');document.body.classList.add('noscroll')},
+ pubClose(){const v=$('#viewer');v.classList.remove('on');v.innerHTML='';document.body.classList.remove('noscroll')},
+ pubRefresh(){PUB=null;PUBERR='';renderPublic()},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
@@ -588,7 +612,7 @@ function people(){const rows=state.contacts.slice().sort((a,b)=>a.name.localeCom
 function personForm(c,cb){openForm(c?'Edit person':'Add person',[{name:'name',label:'Name',req:1,full:1},{name:'org',label:'Affiliation'},{name:'email',label:'Email',type:'email'},{name:'orcid',label:'ORCID (0000-0000-0000-0000)'},{name:'notes',label:'Notes',type:'textarea',full:1}],c,o=>{
  if(c)Object.assign(c,o);else{c={id:uid(),...o};state.contacts.push(c)}save();if(cb)cb(c)})}
 function team(p){
- return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab.</p></div>
+ return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab.</p></div>
  ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
 
 const VKINDS=['Journal','Conference','Funder','Publisher'];
@@ -671,6 +695,84 @@ async function snapshot(){const t=today();if(localStorage.getItem('wf.snap')===t
  const r=await(await g('https://www.googleapis.com/drive/v3/files?orderBy=name%20desc&pageSize=100&fields=files(id)&q='+encodeURIComponent(`'${bf}' in parents and trashed=false and name contains 'writeflow-backup-'`))).json();
  for(const f of r.files.slice(14))await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})})}
 
+/* ---------- Public view (owner side) ---------- */
+const pubLink=()=>{const o=state.settings.pub||{};return location.origin+location.pathname+'#/public?f='+encodeURIComponent(o.fileId)+'&k='+encodeURIComponent(o.key)};
+function pubSettingsHtml(){const o=state.settings.pub||{},sh=o.show||{};const ck=(k,def)=>(sh[k]===undefined?def:sh[k])?'checked':'';
+ const link=o.fileId&&o.key?pubLink():'';
+ return`<h4 style="margin:16px 0 6px">Public view</h4><p class="mute sm2" style="margin:0 0 8px">Anyone with the link sees a read-only dashboard: stages, deadlines, pending tasks and file names. Opening a file needs a Google account that has access to it in Drive.</p>
+ <label class="row" style="margin-bottom:6px"><input type="checkbox" id="pubOn" ${o.on?'checked':''}> Share a public view</label>
+ <input id="pubKey" placeholder="Google API key (restricted to this site and the Drive API)" value="${esc(o.key||'')}">
+ <div class="row" style="flex-wrap:wrap;gap:14px;margin:8px 0"><label class="row"><input type="checkbox" id="pubV" ${ck('venue',true)}> Venues and funders</label><label class="row"><input type="checkbox" id="pubT" ${ck('tasks',true)}> Task titles</label><label class="row"><input type="checkbox" id="pubF" ${ck('files',true)}> File names</label><label class="row"><input type="checkbox" id="pubP" ${ck('team',false)}> People</label><label class="row"><input type="checkbox" id="pubM" ${ck('money',false)}> Funding amounts</label></div>
+ <div class="row" style="flex-wrap:wrap"><button class="sm" data-a="savePub">Save and publish</button>${o.on?'<button class="sm danger" data-a="pubStop">Stop sharing</button>':''}</div>
+ ${link?`<div class="row" style="margin-top:8px"><input readonly id="publink" value="${esc(link)}"><button class="sm" data-a="copyPubLink">Copy link</button></div>`:''}
+ <p class="mute sm2" style="margin:6px 0 0">Tick "Hide from the public view" in a writing's Overview to keep it out.</p>`}
+function buildPublic(){const o=state.settings.pub||{},sh={venue:true,tasks:true,files:true,team:false,money:false,...(o.show||{})};
+ return{v:1,generated:new Date().toISOString(),show:sh,projects:state.projects.filter(p=>!p.private).map(p=>({id:p.id,title:p.title,type:p.type,stage:p.stage,priority:p.priority,
+  venue:sh.venue?p.venue:'',deadline:p.deadline,words:p.words,wordTarget:p.wordTarget,decisionDate:p.decisionDate||'',amount:sh.money?p.amount:'',currency:sh.money?p.currency:'',
+  tasks:p.tasks.map(t=>({t:sh.tasks?t.title:'Task',d:t.due,done:t.done,who:sh.team&&t.who?cname(t.who):''})),
+  reviews:p.reviews.map(r=>({reviewer:r.reviewer,round:r.round,due:r.due,decision:r.decision,open:r.points.filter(x=>!x.done).length,total:r.points.length})),
+  submissions:p.submissions.map(x=>({venue:sh.venue?x.venue:'',date:x.date,status:x.status,decisionDate:x.decisionDate})),
+  team:sh.team?p.team.map(m=>({name:cname(m.cid),role:m.role})):[],
+  files:sh.files?p.versions.map(v=>({doc:v.doc,label:v.label,kind:v.kind,date:v.date,name:v.fileName,id:v.driveId||'',link:safeUrl(v.link)})):[]}))}}
+async function pushPublic(){const o=state.settings.pub;if(!o||!o.on)return;const body=JSON.stringify(buildPublic());
+ const perm=id=>g('https://www.googleapis.com/drive/v3/files/'+id+'/permissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'anyone',role:'reader'})});
+ if(o.fileId){let ok=true;try{await g('https://www.googleapis.com/upload/drive/v3/files/'+o.fileId+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body})}catch(e){ok=false}
+  if(ok){if(!o.shared){await perm(o.fileId);o.shared=true;localStorage.setItem(KEY,JSON.stringify(state))}return}}
+ const root=await rootFolder(),b='wfb'+uid();
+ const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:'writeflow-public.json',parents:[root]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
+ const f=await(await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})).json();
+ await perm(f.id);o.fileId=f.id;o.shared=true;localStorage.setItem(KEY,JSON.stringify(state))}
+
+/* ---------- Public view (visitor side, read-only) ---------- */
+let PUB=null,PUBERR='',PUBLOAD=false,pf={q:'',type:''};
+const isPublic=()=>/^#\/public/.test(location.hash);
+function pubQ(){const q=new URLSearchParams(location.hash.split('?')[1]||'');return{f:q.get('f')||'',k:q.get('k')||''}}
+function pubRoute(){const h=location.hash.slice(2).split('?')[0].split('/');return{page:h[1]||'overview',id:h[2]}}
+const pl=path=>{const q=pubQ();return'#/public'+path+'?f='+encodeURIComponent(q.f)+'&k='+encodeURIComponent(q.k)};
+async function pubFetch(){PUBLOAD=true;PUBERR='';
+ try{const q=pubQ();if(!q.f||!q.k)throw new Error('This link is incomplete. Ask the owner for the full link.');
+  const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(q.f)+'?alt=media&key='+encodeURIComponent(q.k));
+  if(!r.ok)throw new Error('The shared view could not be loaded. The owner may have turned it off.');PUB=await r.json()}
+ catch(e){PUBERR=e.message}PUBLOAD=false;renderPublic()}
+function pubShell(body,page){return`<div class="pubbar"><div class="brand" style="margin:0"><i>W</i>WriteFlow</div><nav><a href="${pl('')}" class="${!page||page==='overview'?'on':''}">Overview</a><a href="${pl('/writings')}" class="${page==='writings'||page==='p'?'on':''}">Writings</a></nav><span class="sp"></span><span class="mute sm2">${PUB?'Updated '+esc(new Date(PUB.generated).toLocaleString()):'Read-only view'}</span><button class="sm" data-a="pubRefresh">Refresh</button></div><div class="pubmain">${body}</div>`}
+function renderPublic(){const v=$('#view');
+ if(!PUB){v.innerHTML=pubShell(PUBERR?`<div class="card empty">${esc(PUBERR)}</div>`:'<div class="card empty">Loading the shared view…</div>');if(!PUBLOAD&&!PUBERR)pubFetch();return}
+ const r=pubRoute(),one=r.page==='p'?PUB.projects.find(x=>x.id===r.id):null;
+ v.innerHTML=pubShell(one?pubDetail(one):r.page==='writings'?pubList():pubOverview(),one?'p':r.page);window.scrollTo(0,0)}
+const pwrow=p=>`<div class="wrow" data-go="${pl('/p/'+p.id)}"><div class="c1"><div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${CLOSED.includes(p.stage)?'':dueChip(p.deadline)}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
+function pubItems(){const it=[];PUB.projects.filter(p=>!CLOSED.includes(p.stage)).forEach(p=>{
+ if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id});
+ p.tasks.filter(t=>!t.done&&t.d).forEach(t=>it.push({d:t.d,t:t.t,s:p.title,id:p.id}));
+ p.reviews.filter(r=>r.due&&r.open>0).forEach(r=>it.push({d:r.due,t:'Review response due',s:p.title,id:p.id}))});return it.sort((a,b)=>a.d.localeCompare(b.d))}
+function pubOverview(){const act=PUB.projects.filter(p=>!CLOSED.includes(p.stage)),items=pubItems();
+ const od=items.filter(i=>days(i.d)<0),wk=items.filter(i=>{const n=days(i.d);return n>=0&&n<=7}),lt=items.filter(i=>{const n=days(i.d);return n>7&&n<=60});
+ const soon=items.filter(i=>{const n=days(i.d);return n>=0&&n<=30}).length;
+ const open=PUB.projects.reduce((n,p)=>n+p.reviews.reduce((m,r)=>m+r.open,0),0);
+ const row=i=>`<a class="item" href="${pl('/p/'+i.id)}"><span class="sp"><span class="it">${esc(i.t)}</span><br><span class="mute sm2">${esc(i.s)}</span></span><span class="mute sm2">${fmt(i.d)}</span>${dueChip(i.d)}</a>`;
+ const grp=(t,a)=>a.length?`<div class="grp">${t}</div>${a.slice(0,10).map(row).join('')}`:'';
+ const sorted=act.slice().sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+ return`<div class="head"><div><h1>Writing dashboard</h1><p class="sub">${act.length} active writing${act.length===1?'':'s'}, ${od.length} overdue, ${soon} due in the next 30 days, ${open} open review point${open===1?'':'s'}.</p></div></div>
+ <div class="cols"><section class="panel"><h2>Needs attention</h2>${grp('Overdue',od)}${grp('This week',wk)}${grp('Next 60 days',lt)}${od.length+wk.length+lt.length?'':'<span class="mute">Nothing scheduled.</span>'}</section>
+ <section class="panel" style="padding-bottom:6px"><h2>Active writings</h2><div class="wlist" style="border:0;border-radius:0;margin:0 -18px">${sorted.slice(0,8).map(pwrow).join('')||'<div class="empty">No active writings.</div>'}</div>${act.length>8?`<p style="margin:8px 0 10px"><a href="${pl('/writings')}">View all ${act.length}</a></p>`:''}</section></div>`}
+function pubList(){const rows=PUB.projects.filter(p=>(!pf.type||p.type===pf.type)&&(!pf.q||(p.title+p.venue).toLowerCase().includes(pf.q.toLowerCase()))).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+ const act=rows.filter(p=>!CLOSED.includes(p.stage)),done=rows.filter(p=>CLOSED.includes(p.stage));
+ return`<div class="top"><h2>Writings</h2><input style="width:220px" placeholder="Search" value="${esc(pf.q)}" data-pin="q"><select style="width:170px" data-pin="type"><option value="">All types</option>${TYPES.map(t=>`<option ${pf.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+ ${act.length?`<div class="wlist">${act.map(pwrow).join('')}</div>`:'<div class="card empty">No active writings match.</div>'}
+ ${done.length?`<h3 style="margin:22px 0 8px">Closed</h3><div class="wlist">${done.map(pwrow).join('')}</div>`:''}`}
+function pubDetail(p){const open=p.tasks.filter(t=>!t.done),done=p.tasks.length-open.length,sh=PUB.show||{};
+ const files=p.files||[];
+ return`<a href="${pl('/writings')}" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
+ <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${CLOSED.includes(p.stage)?'':dueChip(p.deadline)}</span>`:''}${prioChip(p)}</div></div></div>
+ <div class="card" style="padding:8px 14px 2px">${rail(p,false,true)}</div>
+ ${p.wordTarget?`<div class="card">${prog(p)}</div>`:''}
+ ${sh.money&&p.amount?`<div class="card"><b>${esc(p.currency||'USD')} ${Number(p.amount).toLocaleString()}</b> <span class="mute">requested${p.decisionDate?', decision expected '+fmt(p.decisionDate):''}</span></div>`:''}
+ <div class="cols"><section class="card"><h3>Pending tasks (${open.length}${done?', '+done+' done':''})</h3>${open.map(t=>`<div class="item" style="cursor:default"><span class="sp">${esc(t.t)}${t.who?` <span class="chip">${esc(t.who)}</span>`:''}</span><span class="mute sm2">${fmt(t.d)}</span>${dueChip(t.d)}</div>`).join('')||'<span class="mute">Nothing pending.</span>'}</section>
+ <section class="card"><h3>Reviews and submissions</h3>${p.reviews.map(r=>`<div class="item" style="cursor:default"><span class="sp">Round ${esc(r.round)}: ${esc(r.reviewer)}<br><span class="mute sm2">${r.open} of ${r.total} comments open${r.due?', response due '+fmt(r.due):''}</span></span><span class="chip">${esc(r.decision)}</span></div>`).join('')}${p.submissions.map(x=>`<div class="item" style="cursor:default"><span class="sp">${esc(x.venue||'Submission')}<br><span class="mute sm2">Submitted ${fmt(x.date)}${x.decisionDate?', decision '+fmt(x.decisionDate):''}</span></span><span class="chip">${esc(x.status)}</span></div>`).join('')}${p.reviews.length+p.submissions.length?'':'<span class="mute">No reviews or submissions yet.</span>'}</section></div>
+ ${(p.team||[]).length?`<section class="card"><h3>Team</h3>${p.team.map(m=>`<div class="item" style="cursor:default"><span class="sp">${esc(m.name)}</span><span class="chip">${esc(m.role)}</span></div>`).join('')}</section>`:''}
+ ${sh.files===false?'':`<section class="card"><h3>Files</h3>${files.length?`<table><tr><th>Document</th><th>Version</th><th>Kind</th><th>Date</th><th>File</th></tr>${files.slice().reverse().map(f=>`<tr><td>${esc(f.doc)}</td><td>${esc(f.label)}</td><td><span class="chip">${esc(f.kind)}</span></td><td>${fmt(f.date)}</td><td>${f.id?`<button class="link" data-a="pubPreview" data-id="${esc(f.id)}" data-n="${esc(f.name||f.doc)}">${esc(f.name||'Open')}</button> <a class="sm2" target="_blank" rel="noopener" href="https://drive.google.com/file/d/${encodeURIComponent(f.id)}/view">Drive</a>`:(f.link?`<a target="_blank" rel="noopener" href="${esc(f.link)}">${esc(f.name||'Open')}</a>`:esc(f.name||''))}</td></tr>`).join('')}</table><p class="mute sm2" style="margin:10px 0 0">Files open in Google Drive. You need a Google account with access to the file, and Google will ask you to sign in.</p>`:'<span class="mute">No files listed.</span>'}</section>`}`}
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.pin==='q'){pf.q=t.value;const pos=t.selectionStart;renderPublic();const i=document.querySelector('[data-pin=q]');if(i){i.focus();i.setSelectionRange(pos,pos)}}});
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.pin==='type'){pf.type=t.value;renderPublic()}});
+
 /* ---------- File viewer ---------- */
 let VW=null;
 const driveIdFromUrl=u=>{const m=String(u||'').match(/\/d\/([\w-]{15,})|[?&]id=([\w-]{15,})/);return m?(m[1]||m[2]):''};
@@ -715,7 +817,7 @@ async function loadViewer(){
  }catch(e){if(VW===mine)el.innerHTML=vShell(cur,`<div class="vmsg">Could not open this file.<br>${esc(e.message)}</div>`,'','')}}
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.vw==='sw'&&VW){VW.idx=+t.value;loadViewer()}});
 document.addEventListener('keydown',e=>{
- if(e.key==='Escape'&&VW){closeViewer();return}
+ if(e.key==='Escape'&&(VW||$('#viewer').classList.contains('on'))){VW?closeViewer():A.pubClose();return}
  const typing=e.target.closest&&e.target.closest('input,textarea,select,dialog');
  if(!typing&&signedIn&&!VW&&e.key==='n'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();A.newProject()}});
 window.addEventListener('hashchange',()=>document.body.classList.remove('menu'));
@@ -771,7 +873,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){fi
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
  const p=P(route().id),fd=Object.fromEntries(new FormData(f));
- if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
+ if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
  if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||''});
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
