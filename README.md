@@ -33,6 +33,21 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Setup: Cloud Console → Credentials → *API key*, restrict it to **Google Drive API** and to the website `https://michaelouru-sw.github.io/*`. Settings → *Public view* → tick *Share a public view* → paste key → *Save and publish*. Copy the link.
 - It publishes a sanitised `writeflow-public.json` (link-readable) in your WriteFlow Drive folder, refreshed on each sync. Notes, people and amounts are excluded unless you tick them. Tick *Hide from the public view* in a writing's Overview to leave it out. *Stop sharing* revokes the link.
 
+## Co-authors
+- Add a team member who has an email: they get **editor** access to that writing's Drive folder and an invite email. Removing them revokes it.
+- The co-author opens WriteFlow, signs in, and sees the writing under **Shared with me**: tick tasks, add tasks, comment, open files. Changes sync back to the lead's copy every few minutes and on each save.
+- A shared writing keeps a small `_writeflow.json` in its folder. Notes, funding amounts and other writings stay private.
+
+## Planning and writing tools
+- **This week:** tasks spread over 7 days (adjust per-day load), words needed per day, copy or email a digest.
+- **Scan Gmail:** turns recent review, decision and call emails into tasks. Enable the **Gmail API** in your Cloud project and sign in again to approve read-only Gmail access.
+- **Venues:** call deadlines with best-fit writing, fit score from keywords, publisher checklists (Springer, IGI Global, AECT, Web of Conferences; confirm against current author guidelines).
+- **Boilerplate** library and a **bid pack** checklist for proposals.
+- **Files:** compare two versions of a document (words added and removed); link each reviewer comment to the version that fixed it.
+- **Check tab:** word limit, required sections, blind-review terms, and a call-requirements checklist. **Research tab:** ethics to write-up tracker.
+- **Insights:** acceptance rate, time to decision by venue, funding by year, promotion tracker (enter policy minimums; target is minimum times the multiplier), reuse map (set *Derived from* in Overview).
+- **Search** across everything. Public links can have an expiry date.
+
 ## 1. Deploy on GitHub Pages
 1. Create a repo (e.g. `writeflow`), upload `index.html` to the root.
 2. Settings → Pages → Source: *Deploy from a branch* → `main` / root → Save.

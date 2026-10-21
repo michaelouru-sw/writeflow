@@ -121,6 +121,11 @@ dialog[open]{animation:pop .14s ease-out}@keyframes pop{from{transform:translate
 .pubbar{display:flex;gap:18px;align-items:center;padding:12px clamp(16px,3vw,32px);background:var(--sheet);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;flex-wrap:wrap}
 .pubbar nav{display:flex;gap:4px}.pubbar nav a{padding:6px 12px;border-radius:var(--r);color:var(--ink2);font-weight:500}.pubbar nav a:hover{background:var(--wash);text-decoration:none}.pubbar nav a.on{background:var(--wash);color:var(--ink)}
 .pubmain{max-width:1100px;margin:0 auto;padding:26px clamp(16px,3vw,32px) 64px}
+.df del{background:rgba(220,80,80,.25);text-decoration:line-through}.df ins{background:rgba(40,170,110,.25);text-decoration:none}
+.dfbox{max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin:10px 0}.dfbox p{margin:0 0 10px}
+dialog.wide{width:min(860px,95vw)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.pday{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}.pday.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.pday h4{margin:0 0 6px}
+.tree{margin:4px 0 4px 18px;border-left:1px solid var(--line);padding-left:12px}
 </style>
 </head>
 <body>
@@ -136,6 +141,11 @@ dialog[open]{animation:pop .14s ease-out}@keyframes pop{from{transform:translate
   <a class="nav" href="#/venues" data-n="venues"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/></svg>Venues</a>
   <a class="nav" href="#/people" data-n="people"><svg viewBox="0 0 24 24"><path d="M16 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1a4 4 0 0 0-3-3.8M16 4.2a3.5 3.5 0 0 1 0 6.6"/></svg>People</a>
   <a class="nav" href="#/library" data-n="library"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File library</a>
+  <a class="nav" href="#/plan" data-n="plan"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M9 14l2 2 4-4"/></svg>This week</a>
+  <a class="nav" href="#/search" data-n="search"><svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5"/></svg>Search</a>
+  <a class="nav" href="#/insights" data-n="insights"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Insights</a>
+  <a class="nav" href="#/snip" data-n="snip"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7"/></svg>Boilerplate</a>
+  <a class="nav" href="#/shared" data-n="shared"><svg viewBox="0 0 24 24"><path d="M16 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 8v6M17 11h6"/></svg>Shared with me</a>
   <div class="side-foot">
     <div id="accts"></div>
     <div class="status mute" id="sync"></div>
@@ -170,7 +180,7 @@ const SUBST=['Submitted','Under review','Revise & resubmit','Accepted','Rejected
 /* ---------- State ---------- */
 const KEY='writeflow.v1';
 let state=load();
-function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
+function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};s.snips=s.snips||[];(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return fix(s)}catch(e){}return fix({projects:[],settings:{},updated:0})}
 function save(){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render();scheduleSync()}
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -191,7 +201,7 @@ const primary=()=>(accts().find(a=>a.primary)||accts()[0]||{}).email;
 const acctOf=p=>p.account||primary();
 const tokenOk=e=>TOK[e]&&Date.now()<TOK[e].exp-60000;
 function initGIS(){const id=state.settings.clientId;if(!id||!window.google)return;
- tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events',callback:()=>{}})}
+ tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly',callback:()=>{}})}
 function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':'Drive: connected'):'Not signed in';
  const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
 function drawAccts(){const el=$('#accts');if(el)el.innerHTML='<div class="mute" style="font-size:12px;padding:0 8px"><b>Accounts</b>'+accts().map(a=>`<div>${esc(a.email)}${a.primary?' ★':''}</div>`).join('')+'</div>'}
@@ -235,7 +245,7 @@ async function pushData(){
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
 function scheduleSync(){if(!signedIn||offline)return;clearTimeout(syncTimer);setSync('Drive: saving…');
- syncTimer=setTimeout(async()=>{try{await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
+ syncTimer=setTimeout(async()=>{try{await syncAllShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
  if(remote&&(remote.updated||0)>state.updated&&(!state.projects.length||confirm("A newer copy exists in Google Drive. Load it? (Cancel keeps this browser's copy and overwrites Drive)"))){
@@ -243,7 +253,7 @@ async function syncDown(){const remote=await pullData();
  else await pushData();
  setSync('Drive: connected & synced')}
 async function doLogin(){try{if(primary())await getToken(primary());else await addAccount();
- signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));await syncDown();render();notifyDue()}
+ signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));await syncDown();render();notifyDue();scheduleSync()}
  catch(e){signedIn=false;alert(e.message);render()}}
 async function signOut(){if(!confirm("Sign out? Changes are synced to Drive first, then this device's local copy is cleared."))return;
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
@@ -287,6 +297,11 @@ function render(){if(isPublic()){document.querySelector('.app').classList.add('l
  else if(r.page==='venues')v.innerHTML=venues();
  else if(r.page==='people')v.innerHTML=people();
  else if(r.page==='library')v.innerHTML=library();
+ else if(r.page==='plan')v.innerHTML=plan();
+ else if(r.page==='search')v.innerHTML=searchPage();
+ else if(r.page==='insights')v.innerHTML=insights();
+ else if(r.page==='snip')v.innerHTML=snipPage();
+ else if(r.page==='shared')v.innerHTML=shared();
  else v.innerHTML=dashboard();
  setSync();drawAccts();bindDrag()}
 window.addEventListener('hashchange',render);
@@ -346,12 +361,12 @@ function library(){
 
 /* ---------- Detail ---------- */
 function detail(p,tab){
- const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['notes','Notes'],['assistant','Assistant']];
+ const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
  const acc=accts().length>1?`<span class="chip">${esc(acctOf(p))}</span>`:'';
  return`<a href="#/list" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
  <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button></div></div>
  <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>
- <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,notes,assistant}[tab]||overview)(p)}`}
+ <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,check,research,notes,assistant}[tab]||overview)(p)}`}
 function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('title','Title',p.title,'text','full')}
  <div><label>Type</label><select name="type">${TYPES.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>
@@ -362,26 +377,27 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
  ${p.type==='Grant proposal'?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
+ <div><label>Derived from (reuse map)</label><select name="parent"><option value="">None</option>${state.projects.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${p.parent===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select></div>
  <div class="full"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" name="private" ${p.private?'checked':''}> Hide from the public view</label></div>
  <div class="full row"><button class="pri">Save</button><span class="sp"></span><button type="button" class="danger" data-a="delProject" data-id="${p.id}">Delete writing</button></div></form></div>
  <div class="card"><h3>Citation</h3>${p.citation?`<p style="margin:0 0 10px">${esc(p.citation)}</p>`:'<p class="mute" style="margin:0 0 10px">Add a DOI above and save, then look it up to fill the citation.</p>'}<div class="row" style="flex-wrap:wrap"><button class="sm" data-a="doiLookup" data-id="${p.id}">Look up DOI</button><button class="sm" data-a="editCite" data-id="${p.id}">Edit citation</button>${p.citation?`<button class="sm" data-a="copyCite" data-id="${p.id}">Copy</button>`:''}</div></div>
  <div class="card"><h3>Drive folder</h3>${p.folderId?`<a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${p.folderId}?authuser=${encodeURIComponent(acctOf(p))}">Open project folder in Google Drive</a>`:'<span class="mute">Created automatically on first upload.</span>'}<div style="margin-top:8px"><button class="sm" data-a="browse" data-id="${p.id}">Choose an existing Drive folder</button></div></div>`}
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
-function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button></form></div>
- <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
+function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button>${p.type==='Grant proposal'||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
+ <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.link&&/^https:\/\/mail\.google\.com\//.test(t.link)?` <a class="sm2" target="_blank" rel="noopener" href="${esc(t.link)}">email</a>`:''}${t.by?` <span class="chip">added by ${esc(t.by)}</span>`:''}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
 
 function versions(p){
  const docs=[...new Set(p.versions.map(v=>v.doc))];
  return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="upload" data-id="${p.id}">Upload to Drive</button><button data-a="browse" data-id="${p.id}">Browse Drive</button><button data-a="linkVersion" data-id="${p.id}">Link by URL</button></div>
  <p class="mute" style="margin:10px 0 0">Uploads go to this writing's Drive folder and are numbered per document. Click a file name to read it here.</p></div>
- ${docs.map(d=>`<div class="card"><h3>${esc(d)}</h3><table><tr><th>Version</th><th>Kind</th><th>File</th><th>Date</th><th>Note</th><th></th></tr>${p.versions.filter(v=>v.doc===d).sort((a,b)=>b.n-a.n).map(v=>`<tr><td><b>${esc(v.label)}</b></td><td><span class="chip">${esc(v.kind)}</span></td><td>${v.driveId?`<button class="link" data-a="view" data-id="${p.id}" data-v="${v.id}">${esc(v.fileName||'Open')}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||'Open')}</a>`:esc(v.fileName||''))}</td><td>${fmt(v.date)}</td><td>${esc(v.note)}</td><td><button class="sm danger" data-a="delVersion" data-id="${p.id}" data-v="${v.id}" title="Removes the listing only; the Drive file is kept">Remove</button></td></tr>`).join('')}</table></div>`).join('')||'<div class="card empty">No files yet. Upload a draft or browse Drive to link one.</div>'}`}
+ ${docs.map(d=>`<div class="card"><div class="row" style="margin-bottom:8px"><h3 class="sp" style="margin:0">${esc(d)}</h3>${p.versions.filter(v=>v.doc===d&&v.driveId).length>1?`<button class="sm" data-a="cmpVer" data-id="${p.id}" data-doc="${esc(d)}">Compare versions</button>`:''}</div><table><tr><th>Version</th><th>Kind</th><th>File</th><th>Date</th><th>Note</th><th></th></tr>${p.versions.filter(v=>v.doc===d).sort((a,b)=>b.n-a.n).map(v=>`<tr><td><b>${esc(v.label)}</b></td><td><span class="chip">${esc(v.kind)}</span></td><td>${v.driveId?`<button class="link" data-a="view" data-id="${p.id}" data-v="${v.id}">${esc(v.fileName||'Open')}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||'Open')}</a>`:esc(v.fileName||''))}</td><td>${fmt(v.date)}</td><td>${esc(v.note)}</td><td><button class="sm danger" data-a="delVersion" data-id="${p.id}" data-v="${v.id}" title="Removes the listing only; the Drive file is kept">Remove</button></td></tr>`).join('')}</table></div>`).join('')||'<div class="card empty">No files yet. Upload a draft or browse Drive to link one.</div>'}`}
 
 function reviews(p){return`<div class="card"><button class="pri" data-a="addReview" data-id="${p.id}">+ Add review / feedback round</button></div>
  ${p.reviews.map(r=>{const open=r.points.filter(x=>!x.done).length;return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Round ${esc(r.round)} · ${esc(r.reviewer)} <span class="chip ${/Accept|Funded/.test(r.decision)?'ok':/Reject|Not/.test(r.decision)?'bad':''}">${esc(r.decision)}</span></h3>
   <button class="sm" data-a="copyLetter" data-id="${p.id}" data-r="${r.id}">Copy response letter</button><button class="sm" data-a="dlLetter" data-id="${p.id}" data-r="${r.id}">Word</button><button class="sm" data-a="editReview" data-id="${p.id}" data-r="${r.id}">Edit</button><button class="sm danger" data-a="delReview" data-id="${p.id}" data-r="${r.id}">✕</button></div>
   <div class="mute">Received ${fmt(r.received)} · Response due ${fmt(r.due)} ${open?dueChip(r.due):''} · ${open} open point(s)</div>${r.summary?`<p>${esc(r.summary)}</p>`:''}
-  ${r.points.map((x,i)=>`<div class="pt ${x.done?'done':''}"><div class="row"><b class="sp">#${i+1} ${esc(x.comment)}</b><button class="sm" data-a="editPoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">Respond</button><button class="sm" data-a="togglePoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">${x.done?'Reopen':'Mark done'}</button></div>${x.response?`<div class="mute">↳ ${esc(x.response)}</div>`:''}</div>`).join('')}
+  ${r.points.map((x,i)=>`<div class="pt ${x.done?'done':''}"><div class="row"><b class="sp">#${i+1} ${esc(x.comment)}</b><button class="sm" data-a="editPoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">Respond</button><button class="sm" data-a="togglePoint" data-id="${p.id}" data-r="${r.id}" data-i="${i}">${x.done?'Reopen':'Mark done'}</button><select class="sm" style="width:140px" data-a-change="fixedIn" data-id="${p.id}" data-r="${r.id}" data-i="${i}"><option value="">Fixed in…</option>${p.versions.map(v=>`<option value="${v.id}" ${x.fixedIn===v.id?'selected':''}>${esc(v.doc+' '+v.label)}</option>`).join('')}</select></div>${x.response?`<div class="mute">↳ ${esc(x.response)}</div>`:''}</div>`).join('')}
   <button class="sm" data-a="addPoint" data-id="${p.id}" data-r="${r.id}">+ Add comment</button></div>`}).join('')}`}
 
 function submissions0(p){return`<div class="card"><button class="pri" data-a="addSub" data-id="${p.id}">+ Log submission</button></div>
@@ -411,7 +427,7 @@ const A={
   const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[]};
   state.projects.push(p);location.hash='#/p/'+p.id;save()})},
  delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
- delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);save()},
+ delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);p.gone=[...(p.gone||[]),d.t];save()},
  upload(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
   openForm('Upload to Google Drive',[{name:'file',label:'File',type:'file',full:1},{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'note',label:'Note (what changed)',full:1}],{},async o=>{
    const f=$('#f input[type=file]').files[0];if(!f)throw new Error('Choose a file');
@@ -424,7 +440,7 @@ const A={
   openForm('Link an existing file',[{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'fileName',label:'File name / title',req:1},{name:'link',label:'URL (Drive share link etc.)',full:1},{name:'note',label:'Note',full:1}],{},o=>{
    const n=p.versions.filter(v=>v.doc===o.doc).length+1;p.versions.push({id:uid(),doc:o.doc,n,label:'v'+n,kind:o.kind,note:o.note,date:today(),fileName:o.fileName,link:o.link,driveId:driveIdFromUrl(o.link)});save()})},
  browse(d){BR={mode:'',acct:acctOf(P(d.id)),pid:d.id,stack:[{id:'root',name:'My Drive'}],q:'',files:[],msg:''};brLoad()},
- async savePub(){const o=state.settings.pub=state.settings.pub||{};o.on=$('#pubOn').checked;o.key=($('#pubKey').value||'').trim();
+ async savePub(){const o=state.settings.pub=state.settings.pub||{};o.on=$('#pubOn').checked;o.key=($('#pubKey').value||'').trim();o.expires=$('#pubExp').value||'';
   o.show={venue:$('#pubV').checked,tasks:$('#pubT').checked,files:$('#pubF').checked,team:$('#pubP').checked,money:$('#pubM').checked};
   save();if(!o.on)return toast('Public view is off');if(!o.key)toast('Add an API key to get a working link');
   try{await pushPublic();localStorage.setItem(KEY,JSON.stringify(state));toast('Public view published');A.settings()}catch(e){alert('Could not publish: '+e.message)}},
@@ -440,6 +456,35 @@ const A={
   v.classList.add('on');document.body.classList.add('noscroll')},
  pubClose(){const v=$('#viewer');v.classList.remove('on');v.innerHTML='';document.body.classList.remove('noscroll')},
  pubRefresh(){PUB=null;PUBERR='';renderPublic()},
+ addComment(d){const p=P(d.id);openForm('Add comment',[{name:'text',label:'Comment',type:'textarea',full:1,req:1}],{},o=>{(p.comments=p.comments||[]).push({id:uid(),by:primary()||'Lead',at:Date.now(),text:o.text});save()})},
+ shRefresh(){SHR=null;SHRLOAD=false;render()},
+ shTask(d){openForm('New task',[{name:'title',label:'Task',req:1,full:1},{name:'due',label:'Due',type:'date'}],{},o=>shEdit(+d.s,doc=>{doc.tasks.push({id:uid(),title:o.title,due:o.due||'',done:false,who:'',m:Date.now(),by:primary()||'co-author'})}))},
+ shComment(d){openForm('Add comment',[{name:'text',label:'Comment',type:'textarea',full:1,req:1}],{},o=>shEdit(+d.s,doc=>{(doc.comments=doc.comments||[]).push({id:uid(),by:primary()||'co-author',at:Date.now(),text:o.text})}))},
+ shOpen(d){const s=SHR[+d.s],fl=(s.d.files||[]).filter(f=>f.id);openViewer({acct:s.acct,sub:s.d.title,list:fl.map(f=>({id:f.id,label:f.label,name:f.name||f.doc})),idx:+d.k})},
+ digestCopy(){navigator.clipboard.writeText(digestText()).then(()=>toast('Digest copied'))},
+ digestMail(){location.href='mailto:'+encodeURIComponent(primary()||'')+'?subject='+encodeURIComponent('WriteFlow digest '+today())+'&body='+encodeURIComponent(digestText().slice(0,1800))},
+ gmailScan(){gmailScan()},
+ gmTask(d){const m=GM[+d.i],act=state.projects.filter(isActive);if(!act.length)return toast('Create a writing first');
+  const w=t=>new Set(String(t).toLowerCase().match(/[a-z]{4,}/g)||[]),ms=w(m.subject),guess=act.map(p=>({p,n:[...w(p.title)].filter(x=>ms.has(x)).length})).sort((a,b)=>b.n-a.n)[0].p;
+  openForm('Make a task from this email',[{name:'wid',label:'Writing',type:'select',options:act.map(p=>p.title),def:guess.title},{name:'title',label:'Task',def:m.subject,req:1,full:1},{name:'due',label:'Due',type:'date'}],{wid:guess.title},o=>{
+   const p=act.find(x=>x.title===o.wid);p.tasks.push({id:uid(),title:o.title,due:o.due||'',done:false,who:'',m:Date.now(),link:'https://mail.google.com/mail/u/0/#all/'+m.id});save();toast('Task added')})},
+ addSnip(){snipForm(null)},editSnip(d){snipForm(state.snips.find(x=>x.id===d.id))},
+ delSnip(d){state.snips=state.snips.filter(x=>x.id!==d.id);save()},
+ copySnip(d){navigator.clipboard.writeText(state.snips.find(x=>x.id===d.id).text).then(()=>toast('Copied'))},
+ addPubTpl(d){const p=P(d.id);openForm('Publisher checklist',[{name:'t',label:'Publisher',type:'select',options:Object.keys(PUBTPL)}],{},o=>{PUBTPL[o.t].forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));save();toast('Added. Confirm against the current author guidelines.')})},
+ addPack(d){const p=P(d.id);PACK.forEach(x=>p.tasks.push({id:uid(),title:x,due:'',done:false,m:Date.now()}));save();toast('Bid pack checklist added')},
+ addReq(d){const p=P(d.id);openForm('Requirement',[{name:'text',label:'What the call requires',req:1,full:1}],{},o=>{(p.reqs=p.reqs||[]).push({id:uid(),text:o.text,done:false});save()})},
+ toggleReq(d){},delReq(d){const p=P(d.id);p.reqs=p.reqs.filter(r=>r.id!==d.r);save()},
+ useWords(d){const p=P(d.id),r=CHK[p.id];if(r&&r.words){setWords(p,r.words);save()}},
+ startRes(d){const p=P(d.id);p.research=RESSTEPS.map(n=>({name:n,status:'Not started',date:'',note:''}));save()},
+ resDesign(d){const p=P(d.id);openForm('Study details',[{name:'design',label:'Design (e.g. mixed methods, PLS-SEM)',full:1},{name:'ethics',label:'Ethics approval reference'},{name:'target',label:'Target sample',type:'number'},{name:'now',label:'Sample so far',type:'number'}],p.rdesign||{},o=>{p.rdesign=o;save()})},
+ cmpVer(d){const p=P(d.id),vs=p.versions.filter(v=>v.doc===d.doc&&v.driveId).sort((a,b)=>a.n-b.n),lab=v=>v.label+' · '+(v.fileName||'');
+  openForm('Compare versions of '+d.doc,[{name:'a',label:'From',type:'select',options:vs.map(lab),def:lab(vs[vs.length-2])},{name:'b',label:'To',type:'select',options:vs.map(lab),def:lab(vs[vs.length-1])}],{},async o=>{
+   const va=vs.find(v=>lab(v)===o.a),vb=vs.find(v=>lab(v)===o.b);const [ta,tb]=await Promise.all([fileText(p,va.driveId),fileText(p,vb.driveId)]);const r=diffDoc(ta,tb);
+   setTimeout(()=>dlgShow(`<h3 style="margin-top:0">${esc(va.label)} to ${esc(vb.label)}</h3><p class="mute" style="margin:0">${r.add} words added, ${r.del} removed. Unchanged text is shown in grey for context.</p><div class="dfbox df">${r.html}</div><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`,true),60)})},
+ promoMult(){const pr=state.settings.promo;openForm('Target multiplier',[{name:'mult',label:'Target = policy minimum times',type:'number',def:pr.mult}],{},o=>{pr.mult=Math.max(1,+o.mult||1);save()})},
+ promoAdd(){const pr=state.settings.promo;openForm('Add row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number',def:0}],{},o=>{pr.rows.push({id:uid(),label:o.label,type:o.type,min:+o.min||0});save()})},
+ promoEdit(d){const pr=state.settings.promo,r=pr.rows[+d.i];openForm('Edit row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number'}],r,o=>{Object.assign(r,{label:o.label,type:o.type,min:+o.min||0});save()})},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
@@ -451,12 +496,13 @@ const A={
  editPerson(d){personForm(state.contacts.find(c=>c.id===d.id))},
  delPerson(d){if(!confirm('Delete this person? They are removed from all teams and task assignments.'))return;state.contacts=state.contacts.filter(c=>c.id!==d.id);state.projects.forEach(p=>{p.team=p.team.filter(m=>m.cid!==d.id);p.tasks.forEach(t=>{if(t.who===d.id)t.who=''})});save()},
  addMember(d){const p=P(d.id);const av=state.contacts.filter(c=>!p.team.some(m=>m.cid===c.id));
-  if(!av.length){toast('Add a person first');return personForm(null,c=>{p.team.push({cid:c.id,role:'Co-author'});save()})}
+  if(!av.length){toast('Add a person first');return personForm(null,c=>addMem(p,c.id,'Co-author'))}
   const lab=c=>c.name+(c.org?' ('+c.org+')':'');
-  openForm('Add team member',[{name:'who',label:'Person',type:'select',options:av.map(lab)},{name:'role',label:'Role',type:'select',options:ROLES,def:'Co-author'}],{},o=>{const c=av.find(x=>lab(x)===o.who);p.team.push({cid:c.id,role:o.role});save()})},
- teamNew(d){const p=P(d.id);personForm(null,c=>{p.team.push({cid:c.id,role:'Co-author'});save()})},
+  openForm('Add team member',[{name:'who',label:'Person',type:'select',options:av.map(lab)},{name:'role',label:'Role',type:'select',options:ROLES,def:'Co-author'}],{},o=>{const c=av.find(x=>lab(x)===o.who);addMem(p,c.id,o.role)})},
+ teamNew(d){const p=P(d.id);personForm(null,c=>addMem(p,c.id,'Co-author'))},
  editMember(d){const p=P(d.id),m=p.team[+d.i];openForm('Role in this writing',[{name:'role',label:'Role',type:'select',options:ROLES}],m,o=>{m.role=o.role;save()})},
- rmMember(d){P(d.id).team.splice(+d.i,1);save()},
+ rmMember(d){const p=P(d.id),m=p.team.splice(+d.i,1)[0];if(m)unshareMember(p,m);save()},
+ shareMem(d){const p=P(d.id);shareMember(p,p.team[+d.i])},
  addVenue(){venueForm(null)},
  editVenue(d){venueForm(state.venues.find(v=>v.id===d.id))},
  delVenue(d){if(confirm('Delete this venue?')){state.venues=state.venues.filter(v=>v.id!==d.id);save()}},
@@ -612,21 +658,31 @@ function people(){const rows=state.contacts.slice().sort((a,b)=>a.name.localeCom
 function personForm(c,cb){openForm(c?'Edit person':'Add person',[{name:'name',label:'Name',req:1,full:1},{name:'org',label:'Affiliation'},{name:'email',label:'Email',type:'email'},{name:'orcid',label:'ORCID (0000-0000-0000-0000)'},{name:'notes',label:'Notes',type:'textarea',full:1}],c,o=>{
  if(c)Object.assign(c,o);else{c={id:uid(),...o};state.contacts.push(c)}save();if(cb)cb(c)})}
 function team(p){
- return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab.</p></div>
- ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
+ return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab. A member with an email gets editor access to this writing's Drive folder and sees the writing under Shared with me.</p></div>${commentsCard(p)}
+ ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)} ${m.permId?'<span class="chip ok" title="Editor access to the Drive folder">Editor</span>':`<button class="sm" data-a="shareMem" data-id="${p.id}" data-i="${i}">Give editor access</button>`}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
 
 const VKINDS=['Journal','Conference','Funder','Publisher'];
 function venues(){const rows=state.venues.slice().sort((a,b)=>(a.kind+a.name).localeCompare(b.kind+b.name));
  const used=n=>state.projects.reduce((c,p)=>c+p.submissions.filter(s=>s.venue===n).length,0);
+ const cfp=state.venues.filter(v=>v.deadline&&days(v.deadline)>=0&&days(v.deadline)<=90).sort((a,b)=>a.deadline.localeCompare(b.deadline));
+ const best=v=>{const k=Object.keys(KINDFOR).filter(t=>KINDFOR[t]===v.kind);const c=state.projects.filter(isActive).filter(p=>k.includes(p.type)).map(p=>({p,n:fitScore(p,v)})).sort((a,b)=>b.n-a.n)[0];return c&&c.n?c.p:null};
  return`<div class="top"><h2>Venues and funders</h2><button class="pri" data-a="addVenue">Add venue</button></div>
+ ${cfp.length?`<div class="card"><h3>Call deadlines (next 90 days)</h3>${cfp.map(v=>{const b=best(v);return`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b> <span class="mute sm2">${esc(v.kind)}</span>${b?`<br><span class="mute sm2">Best fit: <a href="#/p/${b.id}">${esc(b.title)}</a></span>`:''}</span><span class="mute sm2">${fmt(v.deadline)}</span>${dueChip(v.deadline)}</div>`}).join('')}</div>`:''}
  ${rows.length?`<div class="card"><table><tr><th>Name</th><th>Kind</th><th>Scope</th><th>Fee</th><th>Turnaround</th><th>Next deadline</th><th>Submissions</th><th></th></tr>${rows.map(v=>`<tr><td>${safeUrl(v.url)?`<a target="_blank" rel="noopener" href="${esc(v.url)}">${esc(v.name)}</a>`:`<b>${esc(v.name)}</b>`}</td><td>${esc(v.kind)}</td><td>${esc(v.scope)}</td><td>${esc(v.fee)}</td><td>${esc(v.turnaround)}</td><td>${fmt(v.deadline)}</td><td>${used(v.name)}</td><td><button class="sm" data-a="editVenue" data-id="${v.id}">Edit</button> <button class="sm danger" data-a="delVenue" data-id="${v.id}">Delete</button></td></tr>`).join('')}</table></div>`:'<div class="card empty">Keep a shortlist of journals, conferences, publishers and funders with scope, fees and turnaround. After a rejection, the Submissions tab suggests where to send next.</div>'}`}
-function venueForm(v){openForm(v?'Edit venue':'Add venue',[{name:'name',label:'Name',req:1,full:1},{name:'kind',label:'Kind',type:'select',options:VKINDS},{name:'url',label:'Website'},{name:'scope',label:'Scope / focus',full:1},{name:'fee',label:'Fee'},{name:'turnaround',label:'Typical turnaround'},{name:'deadline',label:'Next deadline',type:'date'},{name:'notes',label:'Notes',type:'textarea',full:1}],v,o=>{
+function venueForm(v){openForm(v?'Edit venue':'Add venue',[{name:'name',label:'Name',req:1,full:1},{name:'kind',label:'Kind',type:'select',options:VKINDS},{name:'url',label:'Website'},{name:'scope',label:'Scope / focus',full:1},{name:'keywords',label:'Keywords (comma-separated, used to match your writings)',full:1},{name:'template',label:'Publisher checklist',type:'select',options:['','Springer','IGI Global','AECT','Web of Conferences']},{name:'fee',label:'Fee'},{name:'turnaround',label:'Typical turnaround'},{name:'deadline',label:'Next deadline',type:'date'},{name:'notes',label:'Notes',type:'textarea',full:1}],v,o=>{
  if(v)Object.assign(v,o);else state.venues.push({id:uid(),...o});save()})}
+const PUBTPL={
+ 'Springer':['Download the current Springer template (LNCS or journal)','Format title, authors, affiliations and ORCIDs per the template','Abstract and keywords within the template limits','Check the page limit in the call','Reference style per template, check every reference','Figures at required resolution with captions','Signed copyright or licence form','Upload source and PDF files as the portal requires'],
+ 'IGI Global':['Confirm the chapter proposal is accepted and the word range','Use the IGI Global chapter template','Abstract, keywords and objectives as required','APA references, check every in-text citation','Figures and tables with permissions and captions','Author biography','Signed publishing agreement','Submit to the editors by the deadline'],
+ 'AECT':['Check the AECT call and word limits','Prepare a blind-review manuscript with author details removed','APA 7 formatting and references','Abstract and keywords','Separate title page file','Submit through the portal','Permissions or copyright form if accepted'],
+ 'Web of Conferences':['Download the current EDP Sciences template (Word or LaTeX)','Check page limit and A4 layout','Abstract and keywords per template','Required reference style','Figure quality and captions','Copyright or licence form','Export to PDF and check fonts are embedded','Submit through the conference system by the deadline']};
+const PACK=['Cover letter','Organisation profile (from Boilerplate)','Technical proposal final read-through','Budget and justification checked against the call','Current CVs of key personnel','Past engagements and references','Registration, tax and legal documents','Letters of support or partner commitments','Compliance requirements all ticked (Check tab)','Test upload on the submission portal','Submit at least one day before the deadline'];
+const fitScore=(p,v)=>{const w=t=>new Set(String(t||'').toLowerCase().match(/[a-z]{4,}/g)||[]),a=w(p.title+' '+p.tags+' '+String(p.notes||'').slice(0,500)),b=w(v.scope+' '+(v.keywords||'')+' '+v.name);let n=0;a.forEach(x=>{if(b.has(x))n++});return n};
 const KINDFOR={'Grant proposal':'Funder','Journal article':'Journal','Conference paper':'Conference','Book chapter':'Publisher','Book':'Publisher'};
 function suggest(p){const k=KINDFOR[p.type],used=new Set(p.submissions.map(s=>s.venue));
- const c=state.venues.filter(v=>(!k||v.kind===k)&&!used.has(v.name)).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9')).slice(0,4);
+ const c=state.venues.filter(v=>(!k||v.kind===k)&&!used.has(v.name)).sort((a,b)=>fitScore(p,b)-fitScore(p,a)||(a.deadline||'9').localeCompare(b.deadline||'9')).slice(0,4);
  if(!c.length)return state.venues.length?'':'<div class="card"><h3>Where to send next</h3><span class="mute">Add journals and funders under Venues to get suggestions here.</span></div>';
- return`<div class="card"><h3>Where to send next</h3>${c.map(v=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b><br><span class="mute sm2">${esc(v.scope||'')}${v.turnaround?' Turnaround '+esc(v.turnaround)+'.':''}${v.fee?' Fee '+esc(v.fee)+'.':''}</span></span>${v.deadline?`<span class="mute sm2">${fmt(v.deadline)}</span>`:''}<button class="sm" data-a="subFromVenue" data-id="${p.id}" data-v="${v.id}">Log submission</button></div>`).join('')}</div>`}
+ return`<div class="card"><h3>Where to send next</h3>${c.map(v=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(v.name)}</b> ${fitScore(p,v)?`<span class="chip ok">fit ${fitScore(p,v)}</span>`:''}<br><span class="mute sm2">${esc(v.scope||'')}${v.turnaround?' Turnaround '+esc(v.turnaround)+'.':''}${v.fee?' Fee '+esc(v.fee)+'.':''}</span></span>${v.deadline?`<span class="mute sm2">${fmt(v.deadline)}</span>`:''}<button class="sm" data-a="subFromVenue" data-id="${p.id}" data-v="${v.id}">Log submission</button></div>`).join('')}</div>`}
 function submissions(p){return submissions0(p)+suggest(p)}
 
 const PROBDEF={'Idea':5,'Concept note':10,'Drafting':15,'Internal review':20,'Submitted':30,'Awarded':100,'Declined':0};
@@ -695,6 +751,189 @@ async function snapshot(){const t=today();if(localStorage.getItem('wf.snap')===t
  const r=await(await g('https://www.googleapis.com/drive/v3/files?orderBy=name%20desc&pageSize=100&fields=files(id)&q='+encodeURIComponent(`'${bf}' in parents and trashed=false and name contains 'writeflow-backup-'`))).json();
  for(const f of r.files.slice(14))await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})})}
 
+/* ---------- Co-author sharing ---------- */
+const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
+const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
+function addMem(p,cid,role){const m={cid,role};p.team.push(m);save();shareMember(p,m)}
+async function shareMember(p,m){const em=emailOf(m.cid);if(!em){toast('Add an email to this person to give Drive access');return}
+ if(em===String(acctOf(p)).toLowerCase())return;
+ try{const folder=await projectFolder(p);
+  const r=await(await g(DAPI+'/'+folder+'/permissions?sendNotificationEmail=true&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em})},acctOf(p))).json();
+  m.permId=r.id;m.shared=em;p.shared=true;save();toast('Editor access given to '+em)}catch(e){alert('Could not share the folder: '+e.message)}}
+async function unshareMember(p,m){if(!m.permId||!p.folderId)return;try{await g(DAPI+'/'+p.folderId+'/permissions/'+m.permId,{method:'DELETE'},acctOf(p));toast('Access removed')}catch(e){}}
+function sharedDoc(p){return{v:1,pid:p.id,title:p.title,type:p.type,stage:p.stage,venue:p.venue,deadline:p.deadline,
+ tasks:p.tasks.map(t=>({id:t.id,title:t.title,due:t.due||'',done:!!t.done,who:t.who?cname(t.who):'',m:t.m||0,by:t.by||''})),gone:p.gone||[],comments:p.comments||[],
+ files:p.versions.map(v=>({doc:v.doc,label:v.label,kind:v.kind,date:v.date,name:v.fileName,id:v.driveId||''})),
+ team:p.team.map(m=>({name:cname(m.cid),role:m.role})),rev:Date.now()}}
+function mergeShared(p,doc){let ch=false;const gone=new Set([...(p.gone||[]),...(doc.gone||[])]);p.gone=[...gone];
+ (doc.tasks||[]).forEach(rt=>{if(gone.has(rt.id))return;const lt=p.tasks.find(t=>t.id===rt.id);
+  if(!lt){p.tasks.push({id:rt.id,title:rt.title,due:rt.due||'',done:!!rt.done,who:'',m:rt.m||0,by:rt.by||'co-author'});ch=true}
+  else if((rt.m||0)>(lt.m||0)){lt.done=!!rt.done;lt.due=rt.due||'';lt.title=rt.title;lt.m=rt.m;ch=true}});
+ p.tasks=p.tasks.filter(t=>!gone.has(t.id));
+ const ids=new Set((p.comments=p.comments||[]).map(c=>c.id));(doc.comments||[]).forEach(c=>{if(!ids.has(c.id)){p.comments.push(c);ch=true}});
+ p.comments.sort((a,b)=>a.at-b.at);return ch}
+async function syncShared(p){if(!p.shared||!p.folderId)return false;const a=acctOf(p);
+ const q=`name='${SHF}' and '${p.folderId}' in parents and trashed=false`;
+ const f=(await(await g(DAPI+'?fields=files(id)&q='+encodeURIComponent(q),{},a)).json()).files[0];let ch=false;
+ if(f){const doc=await(await g(DAPI+'/'+f.id+'?alt=media',{},a)).json();ch=mergeShared(p,doc)}
+ const body=JSON.stringify(sharedDoc(p));
+ if(f)await g('https://www.googleapis.com/upload/drive/v3/files/'+f.id+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body},a);
+ else{const b='wfb'+uid();await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:SHF,parents:[p.folderId]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`},a)}
+ return ch}
+async function syncAllShared(){let any=false;for(const p of state.projects){if(!p.shared)continue;try{if(await syncShared(p))any=true}catch(e){}}
+ if(any){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render()}}
+setInterval(()=>{if(signedIn&&!offline&&state.projects.some(p=>p.shared))syncAllShared().catch(()=>{})},180000);
+function commentsCard(p){const c=p.comments||[];return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Co-author comments</h3><button class="sm" data-a="addComment" data-id="${p.id}">Add comment</button></div>${c.length?c.slice().reverse().map(x=>`<div class="item" style="cursor:default"><span class="sp">${esc(x.text)}<br><span class="mute sm2">${esc(x.by)} · ${new Date(x.at).toLocaleString()}</span></span></div>`).join(''):'<p class="mute" style="margin:8px 0 0">No comments yet.</p>'}</div>`}
+let SHR=null,SHRERR='',SHRLOAD=false;
+async function loadShared(){SHRLOAD=true;SHRERR='';const out=[],seen=new Set();
+ for(const a of accts()){try{const q=`name='${SHF}' and sharedWithMe=true and trashed=false`;
+  const r=await(await g(DAPI+'?pageSize=100&fields=files(id,owners(emailAddress,displayName))&q='+encodeURIComponent(q),{},a.email)).json();
+  for(const f of r.files||[]){if(seen.has(f.id))continue;seen.add(f.id);try{const d=await(await g(DAPI+'/'+f.id+'?alt=media',{},a.email)).json();out.push({fid:f.id,acct:a.email,owner:(f.owners||[])[0]||{},d})}catch(e){}}}catch(e){SHRERR=e.message}}
+ SHR=out;SHRLOAD=false;render()}
+async function shEdit(i,fn){const s=SHR[i];try{const doc=await(await g(DAPI+'/'+s.fid+'?alt=media',{},s.acct)).json();fn(doc);doc.rev=Date.now();
+ await g('https://www.googleapis.com/upload/drive/v3/files/'+s.fid+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(doc)},s.acct);s.d=doc;render()}catch(e){alert('Could not save: '+e.message);render()}}
+function shared(){if(SHR===null&&!SHRLOAD)loadShared();
+ if(SHR===null)return'<div class="top"><h2>Shared with me</h2></div><div class="card empty">Loading shared writings…</div>';
+ return`<div class="top"><h2>Shared with me</h2><button data-a="shRefresh">Refresh</button></div>${SHRERR?`<div class="card">${esc(SHRERR)}</div>`:''}
+ ${SHR.length?SHR.map((s,i)=>{const d=s.d,fl=(d.files||[]).filter(f=>f.id);return`<section class="card"><div class="row"><h3 class="sp" style="margin:0">${esc(d.title)}</h3><span class="chip">${esc(d.stage)}</span></div>
+ <div class="mute sm2">${esc(d.type)}${d.venue?' · '+esc(d.venue):''}${d.deadline?' · Due '+fmt(d.deadline)+' '+dueChip(d.deadline):''} · Lead: ${esc(s.owner.displayName||s.owner.emailAddress||'')}</div>
+ <h4 style="margin:14px 0 4px">Tasks</h4>${d.tasks.map(t=>`<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="shToggle" data-s="${i}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.who?` <span class="chip">${esc(t.who)}</span>`:''}</span><span class="mute sm2">${fmt(t.due)}</span>${t.done?'':dueChip(t.due)}</div>`).join('')||'<span class="mute">No tasks yet.</span>'}
+ <div style="margin-top:8px"><button class="sm" data-a="shTask" data-s="${i}">+ Task</button></div>
+ <h4 style="margin:14px 0 4px">Files</h4>${fl.map((f,k)=>`<div class="item" style="cursor:default"><span class="sp"><button class="link" data-a="shOpen" data-s="${i}" data-k="${k}">${esc(f.name||f.doc)}</button><br><span class="mute sm2">${esc(f.doc)} ${esc(f.label)} · ${fmt(f.date)}</span></span><span class="chip">${esc(f.kind)}</span></div>`).join('')||'<span class="mute">No files listed.</span>'}
+ <h4 style="margin:14px 0 4px">Comments</h4>${(d.comments||[]).slice().reverse().map(c=>`<div class="item" style="cursor:default"><span class="sp">${esc(c.text)}<br><span class="mute sm2">${esc(c.by)} · ${new Date(c.at).toLocaleString()}</span></span></div>`).join('')}
+ <button class="sm" data-a="shComment" data-s="${i}">Add comment</button></section>`}).join(''):'<div class="card empty">Nothing is shared with you yet. When a lead author adds you to a writing, it appears here.</div>'}`}
+
+/* ---------- Weekly plan, digest, Gmail ---------- */
+function planSched(){const cap=+(state.settings.planCap||3),D=[];for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);D.push({d:isoDate(d),items:[]})}
+ const open=[];state.projects.filter(isActive).forEach(p=>p.tasks.filter(t=>!t.done&&t.due).forEach(t=>open.push({p,t})));
+ open.sort((a,b)=>a.t.due.localeCompare(b.t.due));let later=0;
+ open.forEach(o=>{const n=days(o.t.due);if(n>6){later++;return}const top=Math.max(0,n),from=Math.max(0,n-3);let k=-1;
+  for(let i=from;i<=top;i++)if(D[i].items.length<cap){k=i;break}
+  if(k<0)for(let i=from-1;i>=0;i--)if(D[i].items.length<cap){k=i;break}
+  if(k<0)k=top;D[k].items.push(o)});
+ const noDue=[];state.projects.filter(isActive).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9')).forEach(p=>p.tasks.filter(t=>!t.done&&!t.due).slice(0,2).forEach(t=>noDue.push({p,t})));
+ const words=state.projects.filter(p=>isActive(p)&&+p.wordTarget>0&&p.deadline&&days(p.deadline)>=0).map(p=>({p,need:Math.max(0,+p.wordTarget-(+p.words||0)),n:Math.max(1,days(p.deadline))})).filter(x=>x.need>0).map(x=>({...x,per:Math.ceil(x.need/x.n)})).sort((a,b)=>a.n-b.n);
+ return{D,later,noDue:noDue.slice(0,6),words}}
+function plan(){const {D,later,noDue,words}=planSched(),cap=+(state.settings.planCap||3);
+ const lab=(d,i)=>i===0?'Today':i===1?'Tomorrow':new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'long'});
+ return`<div class="head"><div><h1>This week</h1><p class="sub">Tasks are spread across the next 7 days by due date, up to ${cap} per day.${later?` ${later} more are due later.`:''}</p></div><div class="acts"><label class="row mute sm2">Per day <select style="width:70px" data-a-change="planCap">${[1,2,3,4,5,6].map(n=>`<option ${n===cap?'selected':''}>${n}</option>`).join('')}</select></label><button data-a="digestCopy">Copy digest</button><button data-a="digestMail">Email digest</button><button data-a="gmailScan">Scan Gmail</button></div></div>
+ <div class="pgrid">${D.map((x,i)=>`<div class="pday ${i===0?'today':''}"><h4>${lab(x.d,i)} <span class="mute sm2">${new Date(x.d+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</span></h4>${x.items.map(o=>`<div class="row" style="padding:4px 0;align-items:flex-start"><input type="checkbox" style="width:auto;margin-top:4px" data-a-change="toggleTask" data-id="${o.p.id}" data-t="${o.t.id}"><span class="sp">${esc(o.t.title)}<br><a class="mute sm2" href="#/p/${o.p.id}/tasks">${esc(o.p.title)}</a> ${days(o.t.due)<0?'<span class="chip bad">overdue</span>':''}</span></div>`).join('')||'<span class="mute sm2">Free</span>'}</div>`).join('')}</div>
+ ${words.length?`<section class="panel" style="margin-top:16px"><h2>Words needed per day</h2>${words.map(x=>`<div class="item" style="cursor:default"><span class="sp"><a href="#/p/${x.p.id}">${esc(x.p.title)}</a><br><span class="mute sm2">${x.need} words left, ${x.n} day${x.n===1?'':'s'} to the deadline</span></span><b>${x.per}/day</b></div>`).join('')}</section>`:''}
+ ${noDue.length?`<section class="panel" style="margin-top:16px"><h2>Tasks without a date</h2>${noDue.map(o=>`<div class="item" style="cursor:default"><span class="sp">${esc(o.t.title)}<br><a class="mute sm2" href="#/p/${o.p.id}/tasks">${esc(o.p.title)}</a></span></div>`).join('')}</section>`:''}`}
+function digestText(){const items=calItems().sort((a,b)=>a.d.localeCompare(b.d)),f=fn=>items.filter(i=>fn(days(i.d))).map(i=>`- ${i.t} (${i.s}), ${fmt(i.d)}`).join('\n')||'- none';
+ const act=state.projects.filter(isActive).length,open=state.projects.reduce((n,p)=>n+p.reviews.reduce((m,r)=>m+r.points.filter(x=>!x.done).length,0),0);
+ return`WriteFlow digest, ${fmt(today())}\n${act} active writings, ${open} open review points.\n\nOverdue\n${f(n=>n<0)}\n\nThis week\n${f(n=>n>=0&&n<=7)}\n\nNext 30 days\n${f(n=>n>7&&n<=30)}\n`}
+let GM=[];
+function dlgShow(html,wide){const d=$('#dlg');d.className=wide?'wide':'';d.innerHTML=html;if(!d.open)d.showModal()}
+async function gmailScan(){dlgShow('<h3 style="margin-top:0">Scan Gmail</h3><p class="mute">Looking at the last 45 days for reviews, decisions, submissions and calls…</p>');
+ try{const q='newer_than:45d (reviewer OR manuscript OR submission OR "decision on" OR revision OR "call for" OR "camera ready" OR grant OR proposal)';
+  const r=await(await g('https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=15&q='+encodeURIComponent(q))).json();
+  GM=[];for(const t of r.threads||[]){const th=await(await g('https://gmail.googleapis.com/gmail/v1/users/me/threads/'+t.id+'?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date')).json();
+   const h=n=>{const x=((th.messages||[])[0]||{}).payload;const y=x&&x.headers.find(z=>z.name===n);return y?y.value:''};GM.push({id:t.id,subject:h('Subject')||'(no subject)',from:h('From'),date:h('Date')})}
+  dlgShow(`<h3 style="margin-top:0">Recent emails to act on</h3>${GM.length?GM.map((m,i)=>`<div class="item" style="cursor:default"><span class="sp"><b>${esc(m.subject)}</b><br><span class="mute sm2">${esc(m.from)}</span></span><button class="sm" data-a="gmTask" data-i="${i}">Make task</button></div>`).join(''):'<p class="mute">Nothing matched.</p>'}<div class="row" style="margin-top:12px"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`,true)}
+ catch(e){dlgShow(`<h3 style="margin-top:0">Could not read Gmail</h3><p>${esc(e.message)}</p><p class="mute">Enable the Gmail API in your Cloud project, then sign in again to approve Gmail access.</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}}
+
+/* ---------- Boilerplate ---------- */
+const SNIPCATS=['Organisation profile','CV / bio','Past engagements','Budget note','Methodology','Other'];
+function snipPage(){const by={};state.snips.forEach(x=>(by[x.cat]=by[x.cat]||[]).push(x));
+ return`<div class="top"><h2>Boilerplate</h2><button class="pri" data-a="addSnip">Add text block</button></div><p class="mute" style="margin:0 0 12px">Reusable text for bids and submissions: organisation profile, bios, past engagements, budget notes. Copy it into any proposal.</p>
+ ${state.snips.length?SNIPCATS.filter(c=>by[c]).map(c=>`<div class="card"><h3>${esc(c)}</h3>${by[c].map(x=>`<div class="item" style="cursor:default;align-items:flex-start"><span class="sp"><b>${esc(x.name)}</b><br><span class="mute sm2">${esc(x.text.slice(0,200))}${x.text.length>200?'…':''}</span><br><span class="mute sm2">${(x.text.match(/\S+/g)||[]).length} words</span></span><button class="sm" data-a="copySnip" data-id="${x.id}">Copy</button><button class="sm" data-a="editSnip" data-id="${x.id}">Edit</button><button class="sm danger" data-a="delSnip" data-id="${x.id}">✕</button></div>`).join('')}</div>`).join(''):'<div class="card empty">No text blocks yet. Add your organisation profile, short and long bios, and standard budget notes.</div>'}`}
+function snipForm(x){openForm(x?'Edit text block':'Add text block',[{name:'name',label:'Name',req:1,full:1},{name:'cat',label:'Category',type:'select',options:SNIPCATS},{name:'text',label:'Text',type:'textarea',full:1,req:1}],x,o=>{if(x)Object.assign(x,o);else state.snips.push({id:uid(),...o});save()})}
+
+/* ---------- Pre-submission check + research tracker ---------- */
+const RESEARCHT=['Research','Journal article','Conference paper','Case study'];
+const RESSTEPS=['Research questions and design','Ethics approval','Instruments developed','Pilot test','Data collection','Data cleaning','Analysis (PLS-SEM or qualitative)','Interpretation','Write-up'];
+const CHK={};
+const rx=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function check(p){const c=p.chk||{},res=CHK[p.id],vs=p.versions.filter(v=>v.driveId),terms=c.terms!==undefined?c.terms:p.team.map(m=>cname(m.cid)).join(', ');
+ return`<div class="card"><h3>Pre-submission check</h3><p class="mute" style="margin:0 0 10px">Reads a Google Doc, Word or text file and checks length, required sections and author details for blind review.</p>
+ <form id="chkf" class="form"><div class="full"><label>File</label><select name="file">${vs.map(v=>`<option value="${v.driveId}" ${c.file===v.driveId?'selected':''}>${esc(v.doc+' '+v.label+' · '+(v.fileName||''))}</option>`).join('')||'<option value="">No Drive files yet</option>'}</select></div>
+ <div><label>Word limit</label><input name="limit" type="number" value="${esc(c.limit||'')}"></div>
+ <div class="full"><label>Required sections (comma-separated)</label><input name="sections" value="${esc(c.sections!==undefined?c.sections:'Abstract, Introduction, Methods, Results, Discussion, Conclusion, References')}"></div>
+ <div class="full"><label>Terms that must not appear (names, institutions) for blind review</label><input name="terms" value="${esc(terms)}"></div>
+ <div class="full row"><button class="pri" ${vs.length?'':'disabled'}>Run check</button></div></form></div>
+ ${res?res.busy?'<div class="card empty">Checking…</div>':res.err?`<div class="card">${esc(res.err)}</div>`:`<div class="card"><h3>Result</h3>
+ <div class="item" style="cursor:default"><span class="sp">Length: ${res.words} words (includes references)${res.limit?`, limit ${res.limit}`:''}</span>${res.limit?`<span class="chip ${res.words>res.limit?'bad':'ok'}">${res.words>res.limit?res.words-res.limit+' over':res.limit-res.words+' under'}</span>`:''}<button class="sm" data-a="useWords" data-id="${p.id}">Set as current words</button></div>
+ ${res.secs.map(x=>`<div class="item" style="cursor:default"><span class="sp">Section: ${esc(x.s)}</span><span class="chip ${x.ok?'ok':'bad'}">${x.ok?'found':'missing'}</span></div>`).join('')}
+ ${res.terms.map(x=>`<div class="item" style="cursor:default"><span class="sp">Blind review: "${esc(x.t)}"</span><span class="chip ${x.n?'bad':'ok'}">${x.n?x.n+' mention'+(x.n===1?'':'s'):'clear'}</span></div>`).join('')}</div>`:''}
+ <div class="card"><div class="row"><h3 class="sp" style="margin:0">Call requirements</h3><button class="sm" data-a="addReq" data-id="${p.id}">Add requirement</button></div>${(p.reqs||[]).map(r=>`<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${r.done?'checked':''} data-a-change="toggleReq" data-id="${p.id}" data-r="${r.id}"><span class="sp" style="${r.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(r.text)}</span><button class="sm danger" data-a="delReq" data-id="${p.id}" data-r="${r.id}">✕</button></div>`).join('')||'<p class="mute" style="margin:8px 0 0">List what the call or guidelines require, and tick each when met.</p>'}</div>`}
+async function runCheck(p,fd){p.chk={limit:fd.limit,sections:fd.sections,terms:fd.terms,file:fd.file};CHK[p.id]={busy:1};save();
+ try{const text=await fileText(p,fd.file),words=(text.match(/\S+/g)||[]).length;
+  const secs=fd.sections.split(',').map(x=>x.trim()).filter(Boolean).map(x=>({s:x,ok:new RegExp('(^|\\n)\\s*(\\d+[.)\\s]+)?'+rx(x)+'\\b','i').test(text)}));
+  const terms=fd.terms.split(',').map(x=>x.trim()).filter(Boolean).map(t=>({t,n:(text.match(new RegExp(rx(t),'gi'))||[]).length}));
+  CHK[p.id]={words,limit:+fd.limit||0,secs,terms}}catch(e){CHK[p.id]={err:e.message}}render()}
+document.addEventListener('submit',e=>{if(e.target.id!=='chkf')return;e.preventDefault();const p=P(route().id);runCheck(p,Object.fromEntries(new FormData(e.target)))});
+function research(p){const r=p.research;
+ if(!r)return`<div class="card empty"><p>Track a study from design to write-up: ethics, instruments, data collection and analysis.</p><button class="pri" data-a="startRes" data-id="${p.id}">Start research tracker</button></div>`;
+ const done=r.filter(x=>x.status==='Done').length,pct=Math.round(100*done/r.length),rd=p.rdesign||{};
+ return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Study progress: ${done} of ${r.length} steps</h3><button class="sm" data-a="resDesign" data-id="${p.id}">Edit study details</button></div><div class="bar" style="margin:8px 0"><i style="width:${pct}%"></i></div>
+ <div class="mute sm2">${esc(rd.design||'Design not set')}${rd.ethics?' · Ethics ref '+esc(rd.ethics):''}${rd.target?` · Sample ${esc(rd.now||0)} of ${esc(rd.target)}`:''}</div></div>
+ <div class="card"><table><tr><th>Step</th><th>Status</th><th>Date</th><th>Note</th></tr>${r.map((x,i)=>`<tr><td>${esc(x.name)}</td><td><select style="width:130px" data-a-change="resStatus" data-id="${p.id}" data-i="${i}">${['Not started','In progress','Done','Blocked'].map(o=>`<option ${o===x.status?'selected':''}>${o}</option>`).join('')}</select></td><td><input type="date" style="width:140px" value="${esc(x.date||'')}" data-a-change="resDate" data-id="${p.id}" data-i="${i}"></td><td><input value="${esc(x.note||'')}" data-a-change="resNote" data-id="${p.id}" data-i="${i}"></td></tr>`).join('')}</table></div>`}
+
+/* ---------- Diff ---------- */
+function lcsOps(A,B){const n=A.length,m=B.length,L=new Array(n+1);for(let i=0;i<=n;i++)L[i]=new Uint16Array(m+1);
+ for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)L[i][j]=A[i]===B[j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+ const out=[];let i=0,j=0;while(i<n&&j<m){if(A[i]===B[j]){out.push({t:'=',v:A[i]});i++;j++}else if(L[i+1][j]>=L[i][j+1])out.push({t:'-',v:A[i++]});else out.push({t:'+',v:B[j++]})}
+ while(i<n)out.push({t:'-',v:A[i++]});while(j<m)out.push({t:'+',v:B[j++]});return out}
+const wc=t=>(String(t).match(/\S+/g)||[]).length;
+function diffDoc(a,b){const split=t=>t.split(/\n+/).map(x=>x.trim()).filter(Boolean),pa=split(a),pb=split(b);
+ if(pa.length*pb.length>2.5e7||pa.length>60000||pb.length>60000)return{html:'<p>These documents are too long to compare here.</p>',add:0,del:0};
+ const ops=lcsOps(pa,pb);let add=0,del=0,html='',i=0,lastEq=null,shown=false;
+ while(i<ops.length){if(ops[i].t==='='){lastEq=ops[i].v;i++;continue}
+  const ds=[],is=[];while(i<ops.length&&ops[i].t!=='='){(ops[i].t==='-'?ds:is).push(ops[i].v);i++}
+  if(lastEq&&!shown)html+=`<p class="mute">${esc(lastEq.slice(0,160))}</p>`;
+  const dt=ds.join(' '),it=is.join(' ');del+=wc(dt);add+=wc(it);
+  if(ds.length&&is.length&&wc(dt)*wc(it)<=3e6){const wo=lcsOps(dt.split(/\s+/),it.split(/\s+/));let h='',k=0;
+   while(k<wo.length){const t=wo[k].t;let seg=[];while(k<wo.length&&wo[k].t===t){seg.push(esc(wo[k].v));k++}const x=seg.join(' ');h+=t==='='?x+' ':t==='-'?`<del>${x}</del> `:`<ins>${x}</ins> `}
+   html+=`<p>${h}</p>`}
+  else{if(dt)html+=`<p><del>${esc(dt)}</del></p>`;if(it)html+=`<p><ins>${esc(it)}</ins></p>`}
+  shown=true;lastEq=null;if(i<ops.length&&ops[i].t==='='){html+=`<p class="mute">${esc(ops[i].v.slice(0,160))}</p>`;lastEq=ops[i].v;shown=true;i++;shown=false}}
+ return{html:html||'<p>No differences found.</p>',add,del}}
+
+/* ---------- Search ---------- */
+let SQ='';
+function searchPage(){return`<div class="top"><h2>Search</h2></div><input id="sq" data-sq placeholder="Search titles, notes, tasks, review comments, files, people, boilerplate" value="${esc(SQ)}" autofocus><div id="sres" style="margin-top:14px">${searchRes()}</div>`}
+function searchRes(){const q=SQ.trim().toLowerCase();if(q.length<2)return'<p class="mute">Type at least two letters.</p>';const out=[];const add=(k,t,sn,href)=>out.push({k,t,sn,href});
+ const has=x=>String(x||'').toLowerCase().includes(q);
+ const snip=(x)=>{const s=String(x||''),i=s.toLowerCase().indexOf(q);return i<0?s.slice(0,100):(i>40?'…':'')+s.slice(Math.max(0,i-40),i+90)};
+ state.projects.forEach(p=>{const h='#/p/'+p.id;
+  if(has(p.title)||has(p.venue)||has(p.tags)||has(p.doi)||has(p.citation))add('Writing',p.title,[p.type,p.venue].filter(Boolean).join(' · '),h);
+  if(has(p.notes))add('Notes',p.title,snip(p.notes),h+'/notes');
+  p.tasks.forEach(t=>{if(has(t.title))add('Task',t.title,p.title,h+'/tasks')});
+  p.reviews.forEach(r=>{if(has(r.reviewer)||has(r.summary))add('Review',r.reviewer+' round '+r.round,p.title,h+'/reviews');r.points.forEach(x=>{if(has(x.comment)||has(x.response))add('Comment',snip(x.comment),(has(x.response)?'Response: '+snip(x.response)+' · ':'')+p.title,h+'/reviews')})});
+  p.versions.forEach(v=>{if(has(v.fileName)||has(v.doc)||has(v.note))add('File',v.fileName||v.doc,p.title+' · '+v.label,h+'/versions')});
+  p.submissions.forEach(x=>{if(has(x.venue)||has(x.notes))add('Submission',x.venue,p.title+' · '+x.status,h+'/submissions')});
+  (p.comments||[]).forEach(c=>{if(has(c.text))add('Comment',snip(c.text),p.title,h+'/team')})});
+ state.contacts.forEach(c=>{if(has(c.name)||has(c.org)||has(c.email))add('Person',c.name,[c.org,c.email].filter(Boolean).join(' · '),'#/people')});
+ state.venues.forEach(v=>{if(has(v.name)||has(v.scope)||has(v.keywords))add('Venue',v.name,v.scope||'','#/venues')});
+ state.snips.forEach(x=>{if(has(x.name)||has(x.text))add('Boilerplate',x.name,snip(x.text),'#/snip')});
+ return out.length?`<div class="card">${out.slice(0,60).map(o=>`<a class="item" href="${o.href}"><span class="chip">${o.k}</span><span class="sp"><span class="it">${esc(o.t)}</span><br><span class="mute sm2">${esc(o.sn)}</span></span></a>`).join('')}</div>${out.length>60?`<p class="mute">Showing 60 of ${out.length}.</p>`:''}`:'<p class="mute">No matches.</p>'}
+document.addEventListener('input',e=>{if(e.target.dataset&&e.target.dataset.sq!==undefined){SQ=e.target.value;$('#sres').innerHTML=searchRes()}});
+
+/* ---------- Insights ---------- */
+const DONEST=['Published','In press','Accepted','Awarded','Final'];
+function insights(){
+ const subs=state.projects.flatMap(p=>p.submissions.map(x=>({...x,type:p.type})));
+ const types=[...new Set(subs.map(x=>x.type))].map(t=>{const a=subs.filter(x=>x.type===t),acc=a.filter(x=>x.status==='Accepted').length,rej=a.filter(x=>x.status==='Rejected').length;return{t,n:a.length,acc,rej,rate:acc+rej?Math.round(100*acc/(acc+rej)):null}});
+ const ven={};subs.filter(x=>x.date&&x.decisionDate).forEach(x=>{const d=Math.round((new Date(x.decisionDate)-new Date(x.date))/864e5);if(d>=0){(ven[x.venue]=ven[x.venue]||[]).push(d)}});
+ const vrows=Object.entries(ven).map(([v,a])=>({v,n:a.length,avg:Math.round(a.reduce((s,x)=>s+x,0)/a.length)})).sort((a,b)=>a.avg-b.avg);
+ const pipe={};state.projects.filter(p=>p.type==='Grant proposal'&&+p.amount>0).forEach(p=>{const y=(p.decisionDate||p.deadline||'').slice(0,4)||'No date',c=p.currency||'USD',k=y+'|'+c;const r=pipe[k]=pipe[k]||{y,c,req:0,exp:0,won:0};r.req+=+p.amount;r.exp+=+p.amount*probOf(p)/100;if(p.stage==='Awarded')r.won+=+p.amount});
+ const prow=Object.values(pipe).sort((a,b)=>a.y.localeCompare(b.y));
+ const pr=state.settings.promo=state.settings.promo||{mult:5,rows:[{id:'r1',label:'Refereed journal articles',type:'Journal article',min:0},{id:'r2',label:'Conference papers',type:'Conference paper',min:0},{id:'r3',label:'Book chapters',type:'Book chapter',min:0},{id:'r4',label:'Grants won',type:'Grant proposal',min:0}]};
+ const cnt=r=>state.projects.filter(p=>p.type===r.type&&DONEST.includes(p.stage)).length;
+ const kids=id=>state.projects.filter(p=>p.parent===id);
+ const node=p=>`<div><a href="#/p/${p.id}">${esc(p.title)}</a> <span class="mute sm2">${esc(p.type)} · ${esc(p.stage)}</span>${kids(p.id).length?`<div class="tree">${kids(p.id).map(node).join('')}</div>`:''}</div>`;
+ const roots=state.projects.filter(p=>kids(p.id).length&&!(p.parent&&P(p.parent)));
+ return`<div class="top"><h2>Insights</h2></div>
+ <div class="card"><h3>Outcomes by type</h3>${types.length?`<table><tr><th>Type</th><th>Submissions</th><th>Accepted</th><th>Rejected</th><th>Acceptance rate</th></tr>${types.map(x=>`<tr><td>${esc(x.t)}</td><td>${x.n}</td><td>${x.acc}</td><td>${x.rej}</td><td>${x.rate===null?'<span class="mute">No decisions yet</span>':x.rate+'%'}</td></tr>`).join('')}</table>`:'<span class="mute">Log submissions to see acceptance rates.</span>'}</div>
+ <div class="card"><h3>Time to decision by venue</h3>${vrows.length?`<table><tr><th>Venue</th><th>Decisions</th><th>Average days</th></tr>${vrows.map(x=>`<tr><td>${esc(x.v)}</td><td>${x.n}</td><td>${x.avg}</td></tr>`).join('')}</table>`:'<span class="mute">Add a submission date and a decision date to see turnaround.</span>'}</div>
+ <div class="card"><h3>Funding pipeline by year</h3>${prow.length?`<table><tr><th>Year</th><th>Requested</th><th>Expected</th><th>Won</th></tr>${prow.map(x=>`<tr><td>${esc(x.y)}</td><td>${esc(x.c)} ${fm(x.req)}</td><td>${esc(x.c)} ${fm(x.exp)}</td><td>${esc(x.c)} ${fm(x.won)}</td></tr>`).join('')}</table>`:'<span class="mute">Add amounts to grant proposals.</span>'}</div>
+ <div class="card"><div class="row"><h3 class="sp" style="margin:0">Promotion tracker</h3><button class="sm" data-a="promoMult">Multiplier: ${pr.mult}x</button><button class="sm" data-a="promoAdd">Add row</button></div>
+ <p class="mute sm2" style="margin:6px 0 10px">Counts writings that are published, accepted, awarded or final. Enter each policy minimum; the target is the minimum times ${pr.mult}.</p>
+ ${pr.rows.map((r,i)=>{const t=(+r.min||0)*pr.mult,n=cnt(r),pc=t?Math.min(100,Math.round(100*n/t)):0;return`<div class="item" style="cursor:default"><span class="sp"><b>${esc(r.label)}</b> <span class="mute sm2">${esc(r.type)}</span><div class="bar" style="margin-top:4px"><i style="width:${pc}%"></i></div></span><span>${n} / ${t||'?'}</span><button class="sm" data-a="promoEdit" data-i="${i}">Edit</button></div>`}).join('')}</div>
+ <div class="card"><h3>Reuse map</h3>${roots.length?roots.map(node).join(''):'<span class="mute">Set "Derived from" in a writing\'s Overview to track how one idea becomes a paper, a chapter and a grant.</span>'}</div>`}
+const fm=n=>Math.round(n).toLocaleString();
+
 /* ---------- Public view (owner side) ---------- */
 const pubLink=()=>{const o=state.settings.pub||{};return location.origin+location.pathname+'#/public?f='+encodeURIComponent(o.fileId)+'&k='+encodeURIComponent(o.key)};
 function pubSettingsHtml(){const o=state.settings.pub||{},sh=o.show||{};const ck=(k,def)=>(sh[k]===undefined?def:sh[k])?'checked':'';
@@ -703,11 +942,12 @@ function pubSettingsHtml(){const o=state.settings.pub||{},sh=o.show||{};const ck
  <label class="row" style="margin-bottom:6px"><input type="checkbox" id="pubOn" ${o.on?'checked':''}> Share a public view</label>
  <input id="pubKey" placeholder="Google API key (restricted to this site and the Drive API)" value="${esc(o.key||'')}">
  <div class="row" style="flex-wrap:wrap;gap:14px;margin:8px 0"><label class="row"><input type="checkbox" id="pubV" ${ck('venue',true)}> Venues and funders</label><label class="row"><input type="checkbox" id="pubT" ${ck('tasks',true)}> Task titles</label><label class="row"><input type="checkbox" id="pubF" ${ck('files',true)}> File names</label><label class="row"><input type="checkbox" id="pubP" ${ck('team',false)}> People</label><label class="row"><input type="checkbox" id="pubM" ${ck('money',false)}> Funding amounts</label></div>
+ <label class="row" style="margin-bottom:8px">Link expires <input type="date" id="pubExp" style="width:160px" value="${esc(o.expires||'')}"> <span class="mute sm2">optional</span></label>
  <div class="row" style="flex-wrap:wrap"><button class="sm" data-a="savePub">Save and publish</button>${o.on?'<button class="sm danger" data-a="pubStop">Stop sharing</button>':''}</div>
  ${link?`<div class="row" style="margin-top:8px"><input readonly id="publink" value="${esc(link)}"><button class="sm" data-a="copyPubLink">Copy link</button></div>`:''}
  <p class="mute sm2" style="margin:6px 0 0">Tick "Hide from the public view" in a writing's Overview to keep it out.</p>`}
 function buildPublic(){const o=state.settings.pub||{},sh={venue:true,tasks:true,files:true,team:false,money:false,...(o.show||{})};
- return{v:1,generated:new Date().toISOString(),show:sh,projects:state.projects.filter(p=>!p.private).map(p=>({id:p.id,title:p.title,type:p.type,stage:p.stage,priority:p.priority,
+ return{v:1,generated:new Date().toISOString(),expires:o.expires||'',show:sh,projects:state.projects.filter(p=>!p.private).map(p=>({id:p.id,title:p.title,type:p.type,stage:p.stage,priority:p.priority,
   venue:sh.venue?p.venue:'',deadline:p.deadline,words:p.words,wordTarget:p.wordTarget,decisionDate:p.decisionDate||'',amount:sh.money?p.amount:'',currency:sh.money?p.currency:'',
   tasks:p.tasks.map(t=>({t:sh.tasks?t.title:'Task',d:t.due,done:t.done,who:sh.team&&t.who?cname(t.who):''})),
   reviews:p.reviews.map(r=>({reviewer:r.reviewer,round:r.round,due:r.due,decision:r.decision,open:r.points.filter(x=>!x.done).length,total:r.points.length})),
@@ -737,6 +977,7 @@ async function pubFetch(){PUBLOAD=true;PUBERR='';
 function pubShell(body,page){return`<div class="pubbar"><div class="brand" style="margin:0"><i>W</i>WriteFlow</div><nav><a href="${pl('')}" class="${!page||page==='overview'?'on':''}">Overview</a><a href="${pl('/writings')}" class="${page==='writings'||page==='p'?'on':''}">Writings</a></nav><span class="sp"></span><span class="mute sm2">${PUB?'Updated '+esc(new Date(PUB.generated).toLocaleString()):'Read-only view'}</span><button class="sm" data-a="pubRefresh">Refresh</button></div><div class="pubmain">${body}</div>`}
 function renderPublic(){const v=$('#view');
  if(!PUB){v.innerHTML=pubShell(PUBERR?`<div class="card empty">${esc(PUBERR)}</div>`:'<div class="card empty">Loading the shared view…</div>');if(!PUBLOAD&&!PUBERR)pubFetch();return}
+ if(PUB.expires&&days(PUB.expires)<0){v.innerHTML=pubShell('<div class="card empty">This link has expired. Ask the owner for a new one.</div>');return}
  const r=pubRoute(),one=r.page==='p'?PUB.projects.find(x=>x.id===r.id):null;
  v.innerHTML=pubShell(one?pubDetail(one):r.page==='writings'?pubWritings():pubOverview(),one?'p':r.page);window.scrollTo(0,0)}
 const pwrow=p=>`<div class="wrow" data-go="${pl('/p/'+p.id)}"><div class="c1"><div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${CLOSED.includes(p.stage)?'':dueChip(p.deadline)}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
@@ -866,15 +1107,22 @@ document.addEventListener('change',e=>{
  const t=e.target;
  if(t.dataset.in){if(t.dataset.in==='boardType')boardType=t.value;else filt[t.dataset.in]=t.type==='checkbox'?t.checked:t.value;render();return}
  const a=t.dataset.aChange;if(!a)return;const p=P(t.dataset.id);
+ if(a==='toggleReq'){const r=p.reqs.find(x=>x.id===t.dataset.r);r.done=t.checked;save();return}
+ if(a==='shToggle'){shEdit(+t.dataset.s,doc=>{const k=doc.tasks.find(x=>x.id===t.dataset.t);if(k){k.done=t.checked;k.m=Date.now()}});return}
+ if(a==='planCap'){state.settings.planCap=+t.value;save();return}
+ if(a==='fixedIn'){p.reviews.find(r=>r.id===t.dataset.r).points[+t.dataset.i].fixedIn=t.value;save();return}
+ if(a==='resStatus'){p.research[+t.dataset.i].status=t.value;save();return}
+ if(a==='resDate'){p.research[+t.dataset.i].date=t.value;save();return}
+ if(a==='resNote'){p.research[+t.dataset.i].note=t.value;save();return}
  if(a==='stage'){p.stage=t.value;save()}
- if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;save()}
- if(a==='taskDue'){p.tasks.find(x=>x.id===t.dataset.t).due=t.value;save()}});
+ if(a==='toggleTask'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.done=t.checked;k.m=Date.now();save()}
+ if(a==='taskDue'){const k=p.tasks.find(x=>x.id===t.dataset.t);k.due=t.value;k.m=Date.now();save()}});
 document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){filt.q=t.value;const pos=t.selectionStart;render();const i=document.querySelector('[data-in=q]');i.focus();i.setSelectionRange(pos,pos)}});
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
  const p=P(route().id),fd=Object.fromEntries(new FormData(f));
  if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}Object.assign(p,fd);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
- if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||''});
+ if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||'',m:Date.now()});
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
 
