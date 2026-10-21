@@ -220,7 +220,7 @@ const acctOf=p=>p.account||primary();
 const tokenOk=e=>TOK[e]&&Date.now()<TOK[e].exp-60000;
 function initGIS(){const id=state.settings.clientId;if(!id||!window.google)return;
  tokenClient=google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly',callback:()=>{}})}
-function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':'Drive: connected'):'Not signed in';
+function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':syncFail?'Drive is not responding. Using the local copy; retrying…':'Drive: connected'):'Not signed in';
  const el=$('#sync');if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
 function drawAccts(){const el=$('#accts');if(el)el.innerHTML='<div class="mute" style="font-size:12px;padding:0 8px"><b>Accounts</b>'+accts().map(a=>`<div>${esc(a.email)}${a.primary?' ★':''}</div>`).join('')+'</div>'}
 function requestToken(hint,select){return new Promise((res,rej)=>{
@@ -236,7 +236,10 @@ async function getToken(email){email=email||primary();if(tokenOk(email))return T
  TOK[email]=r;setSync();return r.t}
 async function addAccount(){const r=await requestToken('',true);const u=await whoami(r.t),email=u.emailAddress.toLowerCase();TOK[email]=r;
  const list=accts();let a=list.find(x=>x.email===email);if(!a){a={email,name:u.displayName,primary:!list.length};list.push(a)}state.settings.accounts=list;return a}
-async function g(url,o={},acct){const t=await getToken(acct);const r=await fetch(url,{...o,headers:{...(o.headers||{}),Authorization:'Bearer '+t}});if(!r.ok)throw new Error((await r.text()).slice(0,300));return r}
+async function g(url,o={},acct){const t=await getToken(acct),m=(o.method||'GET').toUpperCase();
+ for(let k=0;;k++){const r=await fetch(url,{...o,headers:{...(o.headers||{}),Authorization:'Bearer '+t}});if(r.ok)return r;
+  if((r.status===429||r.status>=500)&&m!=='POST'&&k<3){await sleep(1000*2**k);continue}
+  throw new Error((await r.text()).slice(0,300))}}
 async function ensureFolder(name,parent,acct){
  const q=`name='${name.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`+(parent?` and '${parent}' in parents`:'');
  const r=await(await g('https://www.googleapis.com/drive/v3/files?fields=files(id)&q='+encodeURIComponent(q),{},acct)).json();
@@ -263,16 +266,19 @@ async function pushData(){
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
 function scheduleSync(){if(!signedIn||offline)return;clearTimeout(syncTimer);setSync('Drive: saving…');
- syncTimer=setTimeout(async()=>{try{await syncAllShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
+ syncTimer=setTimeout(async()=>{try{if(!pulled)await syncDown();await syncAllShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
  if(remote&&(remote.updated||0)>state.updated&&(!state.projects.length||confirm("A newer copy exists in Google Drive. Load it? (Cancel keeps this browser's copy and overwrites Drive)"))){
   const keep=state.settings;state=fix(remote);state.settings={...remote.settings,...keep,accounts:mergeAcc(keep.accounts,(remote.settings||{}).accounts)};localStorage.setItem(KEY,JSON.stringify(state))}
  else await pushData();
- setSync('Drive: connected & synced')}
-async function doLogin(){try{if(primary())await getToken(primary());else await addAccount();
- signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));await syncDown();render();notifyDue();scheduleSync()}
- catch(e){signedIn=false;alert(e.message);render()}}
+ pulled=true;syncFail=false;setSync('Drive: connected & synced')}
+let pulled=false,retryT,syncFail=false;
+async function doLogin(){try{if(primary())await getToken(primary());else await addAccount()}catch(e){signedIn=false;alert(errMsg(e));render();return}
+ signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));
+ try{await syncDown();render();notifyDue();scheduleSync()}
+ catch(e){pulled=false;syncFail=true;setSync();render();toast('Drive error: '+errMsg(e));retrySync()}}
+function retrySync(){clearTimeout(retryT);retryT=setTimeout(async()=>{try{await syncDown();render();scheduleSync()}catch(e){syncFail=true;setSync();retrySync()}},30000)}
 async function signOut(){if(!confirm("Sign out? Changes are synced to Drive first, then this device's local copy is cleared."))return;
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
