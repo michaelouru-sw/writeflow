@@ -285,6 +285,7 @@ function openForm(title,fields,vals,cb,extra){
 function route(){const h=(location.hash||'#/dashboard').slice(2).split('/');return{page:h[0],id:h[1],tab:h[2]||'overview'}}
 function render(){if(isPublic()){document.querySelector('.app').classList.add('login','pub');renderPublic();return}
  document.querySelector('.app').classList.remove('pub');
+ fix(state);
  const r=route();
  document.querySelector('.app').classList.toggle('login',!signedIn);
  if(!signedIn){$('#view').innerHTML=loginView();return}document.querySelectorAll('aside .nav').forEach(a=>a.classList.toggle('on',a.dataset.n===r.page||(r.page==='p'&&a.dataset.n==='list')));
@@ -424,7 +425,7 @@ const A={
  exportJson(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='writeflow-backup-'+today()+'.json';a.click()},
  importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=fix(s);state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
  newProject(){openForm('New writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
-  const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[]};
+  const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[],team:[],log:[]};
   state.projects.push(p);location.hash='#/p/'+p.id;save()})},
  delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);p.gone=[...(p.gone||[]),d.t];save()},
