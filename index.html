@@ -361,12 +361,12 @@ function library(){
 
 /* ---------- Detail ---------- */
 function detail(p,tab){
- const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
+ const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['write','Write with Claude'],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
  const acc=accts().length>1?`<span class="chip">${esc(acctOf(p))}</span>`:'';
  return`<a href="#/list" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
- <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button></div></div>
+ <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button><a class="btn pri" href="#/p/${p.id}/write">Write with Claude</a></div></div>
  <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>
- <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,check,research,notes,assistant}[tab]||overview)(p)}`}
+ <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,write:writeTab,check,research,notes,assistant}[tab]||overview)(p)}`}
 function overview(p){return`<div class="card"><form id="ov" class="form">
  ${fld('title','Title',p.title,'text','full')}
  <div><label>Type</label><select name="type">${TYPES.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>
@@ -485,6 +485,18 @@ const A={
  promoMult(){const pr=state.settings.promo;openForm('Target multiplier',[{name:'mult',label:'Target = policy minimum times',type:'number',def:pr.mult}],{},o=>{pr.mult=Math.max(1,+o.mult||1);save()})},
  promoAdd(){const pr=state.settings.promo;openForm('Add row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number',def:0}],{},o=>{pr.rows.push({id:uid(),label:o.label,type:o.type,min:+o.min||0});save()})},
  promoEdit(d){const pr=state.settings.promo,r=pr.rows[+d.i];openForm('Edit row',[{name:'label',label:'Label',req:1,full:1},{name:'type',label:'Counts writings of type',type:'select',options:TYPES},{name:'min',label:'Policy minimum',type:'number'}],r,o=>{Object.assign(r,{label:o.label,type:o.type,min:+o.min||0});save()})},
+ wrStop(d){if(WR[d.id])WR[d.id].abort=true;toast('Stopping after this section…')},
+ async wrRegen(d){const p=P(d.id),i=+d.i,o=p.wr||{};
+  openForm('Rewrite this section',[{name:'extra',label:'Instruction (optional), e.g. shorter, stress sustainability, add the evidence from my brief',type:'textarea',full:1}],{},async f=>{
+   const secs=p.draft.sections;WR[p.id]={busy:1,msg:'Rewriting '+secs[i].title+'…',step:1,total:1};
+   setTimeout(async()=>{try{const t=await wrSection(p,{...o,file:null},secs,i,secs.slice(0,i),f.extra);secs[i].text=t;WR[p.id]={};save()}catch(e){WR[p.id]={err:e.message};render()}},30);render()})},
+ async wrSave(d){const p=P(d.id);try{const folder=await projectFolder(p),name=`${p.title} - proposal draft ${today()}`,b='wfb'+uid();
+  const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name,parents:[folder],mimeType:'application/vnd.google-apps.document'})}\r\n--${b}\r\nContent-Type: text/html\r\n\r\n${wrHtml(p)}\r\n--${b}--`;
+  const f=await(await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp},acctOf(p))).json();
+  const doc='Proposal draft',n=p.versions.filter(v=>v.doc===doc).length+1;
+  p.versions.push({id:uid(),doc,n,label:'v'+n,kind:'Draft',note:'Written with Claude. Check before use.',date:today(),fileName:f.name,driveId:f.id,link:f.webViewLink});p.updated=Date.now();save();toast('Saved to Drive as a Google Doc')}catch(e){alert('Could not save: '+e.message)}},
+ wrWord(d){const p=P(d.id);dl(new Blob([wrHtml(p)],{type:'application/msword'}),p.title.replace(/[\\/:*?"<>|]/g,'-')+' - draft.doc')},
+ wrCopy(d){const p=P(d.id);navigator.clipboard.writeText(p.draft.sections.map(x=>x.title+'\n\n'+x.text).join('\n\n')).then(()=>toast('Draft copied'))},
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
@@ -750,6 +762,88 @@ async function snapshot(){const t=today();if(localStorage.getItem('wf.snap')===t
  localStorage.setItem('wf.snap',t);
  const r=await(await g('https://www.googleapis.com/drive/v3/files?orderBy=name%20desc&pageSize=100&fields=files(id)&q='+encodeURIComponent(`'${bf}' in parents and trashed=false and name contains 'writeflow-backup-'`))).json();
  for(const f of r.files.slice(14))await g('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})})}
+
+/* ---------- Write with Claude ---------- */
+const WR={},WRC={};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const b64=ab=>{let s='';const u=new Uint8Array(ab);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+function mdHtml(t){let h='',ul=false;const inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+ String(t).split('\n').forEach(l=>{if(/^\s*[-*]\s+/.test(l)){if(!ul){h+='<ul>';ul=true}h+='<li>'+inl(l.replace(/^\s*[-*]\s+/,''))+'</li>'}else{if(ul){h+='</ul>';ul=false}if(l.trim())h+='<p>'+inl(l)+'</p>'}});return h+(ul?'</ul>':'')}
+async function claudeX(system,content,max){const ai=aiCfg();if(!ai.key)throw new Error('Add your Anthropic API key in Settings first');
+ let last='The request failed';
+ for(let t=0;t<4;t++){const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':ai.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:ai.model||'claude-sonnet-5-5',max_tokens:max||3000,system,messages:[{role:'user',content}]})});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok)return(j.content||[]).map(c=>c.text||'').join('');
+  last=(j.error&&j.error.message)||('Request failed ('+r.status+')');
+  if(r.status===429||r.status===529||r.status>=500){await sleep(2500*(t+1));continue}throw new Error(last)}
+ throw new Error(last)}
+const WRSYS=tone=>`You write funding proposals and academic documents on behalf of the applicant. Use ONLY facts found in the brief, boilerplate, team and project data you are given. Never invent statistics, citations, names, budgets, dates or past results. Where a specific fact is needed and was not provided, write [ADD: what is needed]. Answer the call's evaluation criteria directly and follow its structure and limits. Write in a ${tone} register. Output only the body of the requested section as plain text with short paragraphs, using "- " for bullets and **bold** sparingly. No section title, no preamble, no closing remarks.`;
+async function wrPrep(p,o){const key=(o.callText||'').length+'|'+(o.file&&o.file.name||o.callFile||'');
+ if(WRC[p.id]&&WRC[p.id].key===key)return WRC[p.id];
+ let doc=null,text=(o.callText||'').trim();
+ const addPdf=ab=>{if(ab.byteLength>30e6)throw new Error('That PDF is too large (limit about 30 MB).');doc={type:'document',source:{type:'base64',media_type:'application/pdf',data:b64(ab)}}};
+ if(o.file&&o.file.size){const f=o.file;
+  if(/\.pdf$/i.test(f.name))addPdf(await f.arrayBuffer());
+  else if(/\.docx$/i.test(f.name)){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',()=>window.mammoth);text+='\n'+(await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value}
+  else text+='\n'+await f.text()}
+ else if(o.callFile){const acct=acctOf(p),api=DAPI+'/'+o.callFile,meta=await(await g(api+'?fields=name,mimeType',{},acct)).json();
+  if(meta.mimeType==='application/pdf')addPdf(await(await g(api+'?alt=media',{},acct)).arrayBuffer());else text+='\n'+await fileText(p,o.callFile)}
+ const blocks=[];if(doc)blocks.push(doc);blocks.push({type:'text',text:'CALL / GUIDELINES:\n'+(text.slice(0,70000)||'(No separate call text was provided; use the standard structure for this type of document.)')});
+ blocks[blocks.length-1].cache_control={type:'ephemeral'};
+ return WRC[p.id]={key,blocks}}
+function wrCtx(p,o){const snips=o.useSnips?state.snips.map(x=>`## ${x.name} (${x.cat})\n${x.text.slice(0,3000)}`).join('\n\n').slice(0,15000):'';
+ const team=p.team.map(m=>`${cname(m.cid)}: ${m.role}`).join('; ');
+ return`PROJECT: ${p.title}\nType: ${p.type}\nFunder / venue: ${p.venue||'not set'}\nDeadline: ${p.deadline||'not set'}${p.amount?`\nRequested: ${p.currency||'USD'} ${p.amount}`:''}\nTeam: ${team||'not set'}\n\nAPPLICANT BRIEF:\n${o.brief||'(none)'}\n\n${snips?'BOILERPLATE YOU MAY REUSE:\n'+snips+'\n\n':''}`}
+async function wrSection(p,o,secs,i,done,extra){const prep=await wrPrep(p,o),sec=secs[i];
+ const prev=done.map(x=>`### ${x.title}\n${x.text}`).join('\n\n');const prevT=prev.length>14000?prev.slice(-14000):prev;
+ const words=sec.words||300;
+ const ask=wrCtx(p,o)+(prevT?`SECTIONS ALREADY WRITTEN (keep consistent, do not repeat):\n${prevT}\n\n`:'')+`WRITE THIS SECTION NOW: "${sec.title}". Target about ${words} words.${sec.guidance?` What the call asks for here: ${sec.guidance}`:''}${extra?`\nExtra instruction from the author: ${extra}`:''}`;
+ return(await claudeX(WRSYS(o.tone),[...prep.blocks,{type:'text',text:ask}],Math.min(8000,Math.max(800,Math.round(words*2.4))))).trim()}
+async function wrOutline(p,o){
+ if((o.sections||'').trim())return o.sections.split(/\n|;/).map(x=>x.trim()).filter(Boolean).map(t=>({title:t,words:0,guidance:''}));
+ const prep=await wrPrep(p,o);
+ const txt=await claudeX('You analyse calls for proposals and return only JSON.',[...prep.blocks,{type:'text',text:`Document type: ${p.type}. List the sections this submission must contain, in order, following the call's required structure. For each give the word limit if the call states one (else 0), and a one-sentence note of what the call or evaluation criteria require in that section. If the call gives no structure, use the standard structure for this type. Return ONLY JSON: {"sections":[{"title":"","words":0,"guidance":""}]}. At most 14 sections. Do not include a budget table or annexes that need figures or forms; include a budget narrative only if the call asks for one.`}],2500);
+ const a=txt.indexOf('{'),b=txt.lastIndexOf('}');if(a<0||b<0)throw new Error('Could not read the structure of the call. Type the section names under "Sections" and try again.');
+ const j=JSON.parse(txt.slice(a,b+1));if(!j.sections||!j.sections.length)throw new Error('No sections found in the call. Type the section names under "Sections".');
+ return j.sections.slice(0,14).map(x=>({title:String(x.title||'Section'),words:+x.words||0,guidance:String(x.guidance||'')}))}
+async function writeProposal(p,o){const w=WR[p.id]={busy:1,msg:'Reading the call…',step:0,total:0};
+ const mult={Concise:.7,Standard:1,Detailed:1.4}[o.length]||1;render();
+ try{const outline=await wrOutline(p,o);w.total=outline.length;
+  const secs=outline.map(x=>({...x,words:Math.round((x.words||350)*(x.words?1:1)*(x.words?1:mult))}));
+  const done=[];
+  for(let i=0;i<secs.length;i++){if(w.abort)throw new Error('Stopped. Sections written so far are kept below.');
+   w.step=i+1;w.msg=`Writing ${i+1} of ${secs.length}: ${secs[i].title}`;render();
+   const text=await wrSection(p,o,secs,i,done);done.push({title:secs[i].title,text,words:secs[i].words,guidance:secs[i].guidance});p.draft={at:Date.now(),sections:done.slice(),opts:{tone:o.tone,length:o.length}};localStorage.setItem(KEY,JSON.stringify(state))}
+  WR[p.id]={};p.updated=Date.now();save()}
+ catch(e){WR[p.id]={err:e.message};if(p.draft){p.updated=Date.now();save()}else render()}}
+const wrHtml=p=>`<html><head><meta charset="utf-8"><title>${esc(p.title)}</title></head><body><h1>${esc(p.title)}</h1>`+p.draft.sections.map(x=>`<h2>${esc(x.title)}</h2>${mdHtml(x.text)}`).join('')+'</body></html>';
+function writeTab(p){const ai=aiCfg();
+ if(!ai.key)return'<div class="card empty"><b style="color:var(--ink)">Connect Claude first</b><p>Paste your Anthropic API key in Settings. It stays in this browser.</p><button data-a="settings">Open settings</button></div>';
+ const w=WR[p.id]||{},d=p.draft,o=p.wr||{},files=p.versions.filter(v=>v.driveId);
+ const ph=d?d.sections.reduce((n,x)=>n+(x.text.match(/\[ADD:/g)||[]).length,0):0;
+ return`<div class="card"><h3>Write this ${esc(p.type.toLowerCase())} with Claude</h3>
+ <p class="mute" style="margin:0 0 10px">Give it the call and a short brief. Claude reads the call, builds the structure it asks for, then writes each section in turn using your brief, team and boilerplate.</p>
+ <form id="wrf" class="form">
+ <div class="full"><label>Your brief: the idea, what you will do, key facts, partners, budget, results you can claim</label><textarea name="brief" style="min-height:150px" placeholder="The more specific facts you give, the fewer [ADD: …] gaps you will have to fill.">${esc(o.brief!==undefined?o.brief:(p.notes||''))}</textarea></div>
+ <div class="full"><label>The call, guidelines or evaluation criteria: upload a PDF, Word or text file</label><input type="file" name="file" accept=".pdf,.docx,.txt,.md"></div>
+ ${files.length?`<div class="full"><label>…or use a file already in this writing</label><select name="callFile"><option value="">None</option>${files.map(v=>`<option value="${v.driveId}" ${o.callFile===v.driveId?'selected':''}>${esc(v.doc+' '+v.label+': '+(v.fileName||''))}</option>`).join('')}</select></div>`:''}
+ <div class="full"><label>…or paste the call text</label><textarea name="callText" style="min-height:80px">${esc(o.callText||'')}</textarea></div>
+ <div class="full"><label>Sections (optional, one per line; leave blank to follow the call)</label><textarea name="sections" style="min-height:60px">${esc(o.sections||'')}</textarea></div>
+ <div><label>Length</label><select name="length">${['Concise','Standard','Detailed'].map(x=>`<option ${x===(o.length||'Standard')?'selected':''}>${x}</option>`).join('')}</select></div>
+ <div><label>Tone</label><select name="tone">${['formal funder','academic','plain-English'].map(x=>`<option ${x===(o.tone||'formal funder')?'selected':''}>${x}</option>`).join('')}</select></div>
+ <div class="full"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" name="useSnips" ${o.useSnips===false?'':'checked'}> Use my Boilerplate library (${state.snips.length} block${state.snips.length===1?'':'s'})</label></div>
+ <div class="full row"><button class="pri" ${w.busy?'disabled':''}>${d?'Write again from scratch':'Write proposal'}</button>${w.busy?'<button type="button" data-a="wrStop" data-id="'+p.id+'">Stop</button>':''}</div></form>
+ <p class="mute sm2" style="margin:10px 0 0">The call, your brief, team names and boilerplate are sent to Anthropic with your key. Check every claim, figure and reference before submitting, and check whether the funder allows AI-assisted writing.</p></div>
+ ${w.busy?`<div class="card"><b>${esc(w.msg)}</b><div class="bar" style="margin-top:8px"><i style="width:${w.total?Math.round(100*(w.step-1)/w.total):4}%"></i></div></div>`:''}${w.err?`<div class="card" style="color:var(--alert)">${esc(w.err)}</div>`:''}
+ ${d?`<div class="card"><div class="row" style="flex-wrap:wrap"><h3 class="sp" style="margin:0">Draft: ${d.sections.length} sections, ${d.sections.reduce((n,x)=>n+wc(x.text),0)} words${ph?`, <span style="color:var(--warn)">${ph} placeholder${ph===1?'':'s'} to fill</span>`:''}</h3><button class="sm pri" data-a="wrSave" data-id="${p.id}">Save to Drive as Google Doc</button><button class="sm" data-a="wrWord" data-id="${p.id}">Word</button><button class="sm" data-a="wrCopy" data-id="${p.id}">Copy</button></div></div>
+ ${d.sections.map((x,i)=>`<div class="card"><div class="row"><h3 class="sp" style="margin:0">${esc(x.title)} <span class="mute sm2">${wc(x.text)} words</span></h3><button class="sm" data-a="wrRegen" data-id="${p.id}" data-i="${i}" ${w.busy?'disabled':''}>Rewrite</button></div><textarea style="min-height:${Math.min(420,120+wc(x.text)*0.9)}px;margin-top:8px" data-a-change="wrEdit" data-id="${p.id}" data-i="${i}">${esc(x.text)}</textarea></div>`).join('')}`:''}`}
+document.addEventListener('submit',e=>{if(e.target.id!=='wrf')return;e.preventDefault();const p=P(route().id),fd=Object.fromEntries(new FormData(e.target));
+ if(!fd.brief.trim()&&!fd.callText.trim()&&!(fd.file&&fd.file.size)&&!fd.callFile)return toast('Add a brief or the call first');
+ if(WR[p.id]&&WR[p.id].busy)return;
+ if(p.draft&&!confirm('Replace the current draft?'))return;
+ const o={brief:fd.brief,callText:fd.callText,callFile:fd.callFile||'',sections:fd.sections,length:fd.length,tone:fd.tone,useSnips:!!fd.useSnips,file:fd.file&&fd.file.size?fd.file:null};
+ p.wr={brief:o.brief,callText:o.callText,callFile:o.callFile,sections:o.sections,length:o.length,tone:o.tone,useSnips:o.useSnips};
+ p.draft=null;writeProposal(p,o)});
 
 /* ---------- Co-author sharing ---------- */
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
@@ -1107,6 +1201,7 @@ document.addEventListener('change',e=>{
  const t=e.target;
  if(t.dataset.in){if(t.dataset.in==='boardType')boardType=t.value;else filt[t.dataset.in]=t.type==='checkbox'?t.checked:t.value;render();return}
  const a=t.dataset.aChange;if(!a)return;const p=P(t.dataset.id);
+ if(a==='wrEdit'){p.draft.sections[+t.dataset.i].text=t.value;save();return}
  if(a==='toggleReq'){const r=p.reqs.find(x=>x.id===t.dataset.r);r.done=t.checked;save();return}
  if(a==='shToggle'){shEdit(+t.dataset.s,doc=>{const k=doc.tasks.find(x=>x.id===t.dataset.t);if(k){k.done=t.checked;k.m=Date.now()}});return}
  if(a==='planCap'){state.settings.planCap=+t.value;save();return}
