@@ -632,7 +632,7 @@ const A={
    return{drafts,text:drafts.map(x=>{const r=p.reviews.find(r=>r.id===x.round),c=r&&r.points[x.i];return(r?r.reviewer:'Reviewer')+' #'+(x.i+1)+': '+(c?c.comment:'')+'\nDraft response: '+x.response}).join('\n\n')}})},
  aiApply(d){const p=P(d.id),x=AIX[d.id];let n=0;(x.drafts||[]).forEach(dr=>{const r=p.reviews.find(r=>r.id===dr.round),c=r&&r.points[dr.i];if(c&&!c.response){c.response=dr.response;n++}});save();toast(n+' draft response'+(n===1?'':'s')+' added. Review before sending.')},
  aiCopy(d){navigator.clipboard.writeText((AIX[d.id]||{}).text||'').then(()=>toast('Copied'))},
- async calSync(){const items=calItems();if(!items.length)return toast('Nothing to sync');let ok=0;
+ async calSync(){const items=calItems(true);if(!items.length)return toast('Nothing to sync');let ok=0;
   try{const base='https://www.googleapis.com/calendar/v3/calendars/primary/events';
    for(const x of items){const id='ev'+hex(x.id+'-'+x.k+'-'+(x.key||''));const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10);
     const body={id,summary:x.t+(x.k==='dl'?'':' - '+x.s),description:'From WriteFlow',start:{date:x.d},end:{date:nx},reminders:{useDefault:false,overrides:[{method:'popup',minutes:900}]}};
@@ -662,7 +662,7 @@ const A={
  calToday(){CAL=new Date();CAL.setDate(1);render()},
  exportIcs(){const esc2=t=>String(t).replace(/[\\,;]/g,'\\$&').replace(/\n/g,'\\n');
   const stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
-  const ev=calItems().flatMap((x,i)=>{const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10).replace(/-/g,'');
+  const ev=calItems(true).flatMap((x,i)=>{const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10).replace(/-/g,'');
    return['BEGIN:VEVENT',`UID:${x.id}-${x.k}-${i}@writeflow`,'DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+x.d.replace(/-/g,''),'DTEND;VALUE=DATE:'+nx,'SUMMARY:'+esc2(x.t+' - '+x.s),'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:WriteFlow','TRIGGER:-P1D','END:VALARM','END:VEVENT']});
   const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//WriteFlow//EN',...ev,'END:VCALENDAR'].join('\r\n');
   dl(new Blob([ics],{type:'text/calendar'}),'writeflow-deadlines.ics')},
@@ -740,12 +740,12 @@ const TEMPLATES={
 const tplTasks=t=>(TEMPLATES[t]||[]).map(x=>({id:uid(),title:x,due:'',done:false,stage:(STG[t]||{})[x]||''}));
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
 let CAL=new Date();CAL.setDate(1);
-function calItems(){const it=[];state.projects.filter(isActive).forEach(p=>{
+function calItems(ext){const it=[];state.projects.filter(isActive).forEach(p=>{
  if(p.deadline&&!p.ms)planMilestones(p);
- if(p.ms&&p.ms[p.stage]&&p.stage!=='Submitted')it.push({d:p.ms[p.stage],t:'Finish '+p.stage,s:p.title+' (milestone)',id:p.id,k:'ms',key:'ms'});
+ if(!ext&&p.ms&&p.ms[p.stage]&&p.stage!=='Submitted')it.push({d:p.ms[p.stage],t:'Finish '+p.stage,s:p.title+' (milestone)',id:p.id,k:'ms',key:'ms'});
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
  if(FUNDED.includes(p.type)&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
- p.tasks.filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
+ (ext?[]:p.tasks).filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
  p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev',key:r.id}))});return it}
 function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems();
  const off=(new Date(y,m,1).getDay()+6)%7,dim=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+dim)/7)*7;
