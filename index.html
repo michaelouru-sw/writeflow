@@ -23,6 +23,9 @@ aside{background:var(--sheet);border-right:1px solid var(--line);padding:18px 12
 .brand i{width:26px;height:26px;border-radius:7px;background:var(--mark);color:var(--mark-ink);display:grid;place-items:center;font:600 15px var(--serif);font-style:normal}
 aside a.nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--ink2);font-weight:500}
 aside a.nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+aside details.more summary{cursor:pointer;padding:8px 10px;color:var(--mute);font-weight:500;border-radius:var(--r);list-style:none}
+aside details.more summary:hover{background:var(--wash);color:var(--ink)}
+aside details.more[open] summary{margin-bottom:2px}
 aside a.nav:hover{background:var(--wash);color:var(--ink);text-decoration:none}
 aside a.nav.on{background:var(--wash);color:var(--ink);box-shadow:inset 3px 0 0 var(--mark)}
 .side-foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
@@ -141,18 +144,20 @@ dialog.wide{width:min(860px,95vw)}
 <aside>
   <div class="brand"><i>W</i>WriteFlow</div>
   <a class="nav" href="#/dashboard" data-n="dashboard"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg>Dashboard</a>
-  <a class="nav" href="#/board" data-n="board"><svg viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v10h-5zM16 4h4v13h-4z"/></svg>Board</a>
+  <a class="nav" href="#/plan" data-n="plan"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M9 14l2 2 4-4"/></svg>This week</a>
   <a class="nav" href="#/list" data-n="list"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>All writings</a>
+  <a class="nav" href="#/board" data-n="board"><svg viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v10h-5zM16 4h4v13h-4z"/></svg>Board</a>
   <a class="nav" href="#/calendar" data-n="calendar"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></svg>Calendar</a>
+  <details class="more"><summary>More</summary>
   <a class="nav" href="#/funding" data-n="funding"><svg viewBox="0 0 24 24"><path d="M12 3v18M16 7.5c0-1.7-1.8-3-4-3s-4 1.3-4 3 1.8 3 4 3 4 1.3 4 3-1.8 3-4 3-4-1.3-4-3"/></svg>Funding</a>
   <a class="nav" href="#/venues" data-n="venues"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/></svg>Venues</a>
   <a class="nav" href="#/people" data-n="people"><svg viewBox="0 0 24 24"><path d="M16 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1a4 4 0 0 0-3-3.8M16 4.2a3.5 3.5 0 0 1 0 6.6"/></svg>People</a>
   <a class="nav" href="#/library" data-n="library"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File library</a>
-  <a class="nav" href="#/plan" data-n="plan"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M9 14l2 2 4-4"/></svg>This week</a>
   <a class="nav" href="#/search" data-n="search"><svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5"/></svg>Search</a>
   <a class="nav" href="#/insights" data-n="insights"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Insights</a>
   <a class="nav" href="#/snip" data-n="snip"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7"/></svg>Boilerplate</a>
   <a class="nav" href="#/shared" data-n="shared"><svg viewBox="0 0 24 24"><path d="M16 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 8v6M17 11h6"/></svg>Shared with me</a>
+  </details>
   <div class="side-foot">
     <div id="accts"></div>
     <div class="status mute" id="sync"></div>
@@ -171,28 +176,29 @@ dialog.wide{width:min(860px,95vw)}
 const TYPES=['Grant proposal','Journal article','Conference paper','Research','Book chapter','Book','Case study','Report / policy brief','Consultancy bid','Award / nomination','Fellowship / scholarship','Thesis chapter','Blog / op-ed','Course / curriculum','Other'];
 const FUNDED=['Grant proposal','Consultancy bid','Fellowship / scholarship','Award / nomination'];
 const PIPE={
- 'Consultancy bid':['Call identified','Go / no-go','EOI','Drafting','Internal review','Final checks','Submitted','Shortlisted','Awarded','Declined'],
+ 'Consultancy bid':['Call identified','EOI','Drafting','Internal review','Final checks','Submitted','Shortlisted','Awarded','Declined'],
  'Award / nomination':['Call identified','Eligibility check','Evidence gathering','Drafting','Review','Submitted','Shortlisted','Awarded','Declined'],
  'Fellowship / scholarship':['Call identified','Eligibility check','References requested','Drafting','Review','Submitted','Interview','Awarded','Declined'],
  'Thesis chapter':['Outline','Drafting','Supervisor review','Revisions','Complete'],
  'Blog / op-ed':['Idea','Drafting','Review','Submitted','Published','Rejected'],
  'Course / curriculum':['Needs analysis','Outline','Drafting','Review','Pilot','Complete'],
- 'Grant proposal':['Call identified','Go / no-go','Concept note','Drafting','Internal review','Final checks','Submitted','Under evaluation','Awarded','Declined'],
- 'Journal article':['Idea','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','Published','Rejected'],
+ 'Grant proposal':['Call identified','Concept note','Drafting','Internal review','Final checks','Submitted','Under evaluation','Awarded','Declined'],
+ 'Journal article':['Call identified','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','Published','Rejected'],
  'Conference paper':['Call identified','Abstract','Drafting','Internal review','Final checks','Submitted','Revisions','Accepted','Published','Rejected'],
  'Research':['Idea','Design','Data collection','Analysis','Writing','Review','Complete'],
- 'Book chapter':['Proposal','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published'],
- 'Book':['Proposal','Outline','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published'],
+ 'Book chapter':['Call identified','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published','Rejected'],
+ 'Book':['Call identified','Drafting','Internal review','Submitted','Under review','Revisions','Accepted','In press','Published','Rejected'],
  'Case study':['Idea','Fieldwork','Drafting','Review','Final'],
  'Report / policy brief':['Idea','Drafting','Review','Final'],
  'Other':['Idea','Drafting','Review','Final']};
-const SMAP={'Idea':'Call identified','Opportunity':'Call identified','Nomination drafting':'Drafting'};
-const CALLTYPES=['Grant proposal','Consultancy bid','Award / nomination','Fellowship / scholarship','Conference paper'];
+const SMAP={'Idea':'Call identified','Opportunity':'Call identified','Nomination drafting':'Drafting','Go / no-go':'Call identified','Outline':'Drafting','Proposal':'Call identified'};
+const CALLTYPES=['Grant proposal','Consultancy bid','Award / nomination','Fellowship / scholarship','Conference paper','Journal article','Book chapter','Book'];
+const CALLFMT=['Full paper / proposal','Extended abstract','Abstract only','Abstract, then full paper'];
 function fixStages(s){(s.projects||[]).forEach(p=>{const st=PIPE[p.type];if(st&&!st.includes(p.stage)){const m=CALLTYPES.includes(p.type)?SMAP[p.stage]:null;p.stage=m&&st.includes(m)?m:st[0]}})}
 const MILE={'Call identified':0,'Go / no-go':.06,'Eligibility check':.08,'References requested':.15,'Concept note':.2,'EOI':.2,'Abstract':.2,'Evidence gathering':.4,'Drafting':.7,'Internal review':.85,'Review':.85,'Final checks':.95};
 const STG={
- 'Grant proposal':{'Read call, guidelines & eligibility':'Call identified','Confirm partners & roles':'Go / no-go','Concept note':'Concept note','Narrative draft':'Drafting','Work plan / logframe':'Drafting','Budget & justification':'Drafting','CVs / team profiles':'Drafting','Supporting annexes & letters':'Drafting','Internal review':'Internal review','Final proofread':'Final checks','Submit & save confirmation':'Submitted'},
- 'Consultancy bid':{'Read the ToR and eligibility':'Call identified','Decide bid or no-bid':'Go / no-go','Confirm partners and roles':'Go / no-go','Understanding of the assignment':'EOI','Methodology and work plan':'Drafting','Team and CVs':'Drafting','Past experience and references':'Drafting','Financial proposal':'Drafting','Internal review of the full bid':'Internal review','Compliance check against the ToR':'Final checks','Submit before the deadline':'Submitted'},
+ 'Grant proposal':{'Read call, guidelines & eligibility':'Call identified','Confirm partners & roles':'Call identified','Concept note':'Concept note','Narrative draft':'Drafting','Work plan / logframe':'Drafting','Budget & justification':'Drafting','CVs / team profiles':'Drafting','Supporting annexes & letters':'Drafting','Internal review':'Internal review','Final proofread':'Final checks','Submit & save confirmation':'Submitted'},
+ 'Consultancy bid':{'Read the ToR and eligibility':'Call identified','Confirm partners and roles':'Call identified','Understanding of the assignment':'EOI','Methodology and work plan':'Drafting','Team and CVs':'Drafting','Past experience and references':'Drafting','Financial proposal':'Drafting','Internal review of the full bid':'Internal review','Compliance check against the ToR':'Final checks','Submit before the deadline':'Submitted'},
  'Award / nomination':{'Read criteria and eligibility':'Call identified','Confirm nominee and consent':'Eligibility check','Gather evidence and metrics':'Evidence gathering','Testimonials and letters of support':'Evidence gathering','Draft the nomination narrative':'Drafting','Supporting media and links':'Drafting','Review against the criteria':'Review','Submit':'Submitted'},
  'Fellowship / scholarship':{'Read the call and criteria':'Call identified','Check eligibility and deadlines':'Eligibility check','Request referee letters':'References requested','Personal statement':'Drafting','Research or study proposal':'Drafting','CV and transcripts':'Drafting','Budget or funding plan':'Drafting','Review against criteria':'Review','Submit':'Submitted','Prepare for interview':'Interview'},
  'Conference paper':{'Check call & deadlines':'Call identified','Abstract':'Abstract','Full paper draft':'Drafting','Co-author review':'Internal review','Format to template':'Final checks','Submit':'Submitted','Prepare presentation':'Accepted'}};
@@ -204,7 +210,7 @@ const SUBST=['Submitted','Under review','Revise & resubmit','Accepted','Rejected
 /* ---------- State ---------- */
 const KEY='writeflow.v1';
 let state=load();
-function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};s.snips=s.snips||[];fixStages(s);(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[]});return s}
+function fix(s){s.contacts=s.contacts||[];s.venues=s.venues||[];s.settings=s.settings||{};s.snips=s.snips||[];fixStages(s);(s.projects=s.projects||[]).forEach(p=>{p.team=p.team||[];p.log=p.log||[];p.tasks=p.tasks||[];p.versions=p.versions||[];p.reviews=p.reviews||[];p.submissions=p.submissions||[];p.fmt=p.fmt||CALLFMT[0];p.tasks=p.tasks.filter(t=>t.done||!/^decide bid or no-bid$/i.test(t.title));p.tasks.forEach(t=>{if(t.stage==='Go / no-go')t.stage='Call identified'})});return s}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return fix(s)}catch(e){}return fix({projects:[],settings:{},updated:0})}
 function save(){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render();scheduleSync()}
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -289,7 +295,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-22.1';
+const BUILD='2026-10-22.2';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -351,6 +357,7 @@ function render(){if(isPublic()){document.querySelector('.app').classList.add('l
  else if(r.page==='snip')v.innerHTML=snipPage();
  else if(r.page==='shared')v.innerHTML=shared();
  else v.innerHTML=dashboard();
+ {const mo=document.querySelector('aside details.more');if(mo&&mo.querySelector('.nav.on'))mo.open=true}
  setSync();drawAccts();bindDrag()}
 window.addEventListener('hashchange',render);
 
@@ -377,17 +384,19 @@ function dashboard(){
  const open=state.projects.reduce((n,p)=>n+p.reviews.reduce((m,r)=>m+r.points.filter(x=>!x.done).length,0),0);
  const h=new Date().getHours(),hello=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
  const date=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
- const head=`<div class="head"><div><h1>${hello}</h1><p class="sub">${date}</p></div><div class="acts"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
+ const head=`<div class="head"><div><h1>${hello}</h1><p class="sub">${date}</p></div><div class="acts"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">Add a call</button></div></div>`;
  if(!state.projects.length)return head+`<div class="card empty"><b style="color:var(--ink)">No writings yet</b><p>Import your existing folders from Drive, or start with a new grant, article or chapter.</p><div class="row" style="justify-content:center"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  const kpi=(n,l,href,cls)=>`<a class="kpi ${cls||''}" href="${href}"><b>${n}</b><span>${l}</span></a>`;
  const paper=p=>`<a class="item" href="#/p/${p.id}"><span class="sp"><span class="it">${esc(p.title)}</span><br><span class="mute sm2">${esc(p.type)}${p.venue?' · '+esc(p.venue):''}</span></span><span class="chip">${esc(p.stage)}</span>${p.deadline?`<span class="mute sm2">${fmt(p.deadline)}</span>${dueChip(p.deadline)}`:''}</a>`;
  const byDl=act.slice().sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
  const deadlines=`<section class="panel"><div class="row" style="margin-bottom:8px"><h2 class="sp" style="margin:0">Deadlines</h2><a class="sm2" href="#/list">All writings</a></div>${byDl.slice(0,10).map(paper).join('')||'<span class="mute">All writings are closed.</span>'}${act.length>10?`<p class="mute sm2" style="margin:8px 0 0">${act.length-10} more in All writings.</p>`:''}</section>`;
  const attention=`<section class="panel"><h2>Needs attention</h2>${att.slice(0,6).map(x=>`<a class="item" href="#/p/${x.p.id}"><span class="sp"><span class="it">${esc(x.p.title)}</span><br><span class="mute sm2">${esc(x.why.slice(0,2).join(' · '))}</span></span></a>`).join('')||'<span class="mute">Nothing needs attention. You are on track.</span>'}</section>`;
+ const rej=state.projects.filter(p=>isRejected(p)&&!p.reusedBy).slice(0,3);
+ const reuse=rej.length?`<section class="panel"><h2>Ready to reuse</h2>${rej.map(p=>`<div class="item" style="cursor:default"><span class="sp"><a class="it" href="#/p/${p.id}">${esc(p.title)}</a><br><span class="mute sm2">${esc(p.venue||p.type)} · ${esc(p.stage)}</span></span><button class="sm" data-a="reuse" data-id="${p.id}">Reuse</button></div>`).join('')}</section>`:'';
  const recent=state.projects.flatMap(p=>p.versions.map(v=>({...v,pid:p.id,pt:p.title}))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
  const files=recent.length?`<section class="panel"><h2>Recent files</h2>${recent.map(v=>`<div class="item" style="cursor:default"><span class="sp">${v.driveId?`<button class="link" data-a="view" data-id="${v.pid}" data-v="${v.id}">${esc(v.fileName||v.doc)}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||v.doc)}</a>`:esc(v.fileName||v.doc))}<br><span class="mute sm2">${esc(v.pt)} · ${esc(v.label)}</span></span><span class="mute sm2">${fmt(v.date)}</span></div>`).join('')}</section>`:'';
  return head+`<div class="kpis">${kpi(act.length,'Active writings','#/list')}${kpi(overdue,'Past deadline','#/list',overdue?'alert':'')}${kpi(soon,'Due in 30 days','#/calendar')}${kpi(open,'Open review points','#/list')}</div>
- <div class="dash"><div class="stack">${deadlines}</div><div class="stack">${attention}${logMini()}${files}</div></div>`}
+ <div class="dash"><div class="stack">${deadlines}</div><div class="stack">${attention}${reuse}${logMini()}${files}</div></div>`}
 function logMini(){const m=dailyWords(),ds=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);ds.push(isoDate(d))}
  const vals=ds.map(d=>m[d]||0),mx=Math.max(1,...vals),wk=vals.slice(-7).reduce((a,b)=>a+b,0);
  let st=0;const d0=new Date();if(!m[today()])d0.setDate(d0.getDate()-1);while(m[isoDate(d0)]>0){st++;d0.setDate(d0.getDate()-1)}
@@ -428,21 +437,22 @@ function flowBanner(p){if(!isActive(p))return'';if(p.deadline&&!p.ms)planMilesto
  if(m&&p.stage!=='Submitted'&&days(m)<0)h+=`<div class="card" style="border-color:var(--alert)"><div class="row"><span class="sp"><b>Behind schedule.</b> ${esc(p.stage)} should have finished by ${fmt(m)}.</span><button class="sm" data-a="replan" data-id="${p.id}">Re-plan dates</button></div></div>`;
  if(nx&&cur.length&&cur.every(t=>t.done))h+=`<div class="card" style="border-color:var(--accent)"><div class="row"><span class="sp">All ${esc(p.stage)} tasks are done.</span><button class="sm pri" data-a="setStage" data-id="${p.id}" data-s="${esc(nx)}">Move to ${esc(nx)}</button></div></div>`;
  return h}
+function showRS(p,tab){const st=PIPE[p.type]||[],si=st.indexOf('Submitted');return p.reviews.length||p.submissions.length||si<0||st.indexOf(p.stage)>=si||tab==='reviews'||tab==='submissions'}
 function detail(p,tab){
- const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`],['team',`Team (${p.team.length})`],['write','Write with Claude'],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
+ const tabs=[['overview','Overview'],['tasks',`Tasks (${p.tasks.filter(t=>!t.done).length})`],['versions',`Files (${p.versions.length})`],...(showRS(p,tab)?[['reviews',`Reviews (${p.reviews.length})`],['submissions',`Submissions (${p.submissions.length})`]]:[]),['team',`Team (${p.team.length})`],['write','Write with Claude'],['check','Check'],...(RESEARCHT.includes(p.type)?[['research','Research']]:[]),['notes','Notes'],['assistant','Assistant']];
  const acc=accts().length>1?`<span class="chip">${esc(acctOf(p))}</span>`:'';
  return`<a href="#/list" class="mute" style="display:inline-block;margin-bottom:10px">← All writings</a>
  <div class="head"><div><h1>${esc(p.title)}</h1><div class="meta2"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.deadline?`<span>Due ${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}</span>`:''}${prioChip(p)}${acc}${safeUrl(p.callUrl)?` <a class="chip" target="_blank" rel="noopener" href="${esc(p.callUrl)}">Call</a>`:''}</div></div><div class="acts"><button data-a="logOne" data-id="${p.id}">Log words</button><a class="btn pri" href="#/p/${p.id}/write">Write with Claude</a></div></div>
- <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>${flowBanner(p)}
+ <div class="card" style="padding:8px 14px 2px">${rail(p)}</div>${flowBanner(p)}${reuseBanner(p)}
  <div class="tabs">${tabs.map(t=>`<a href="#/p/${p.id}/${t[0]}" class="${t[0]===tab?'on':''}">${t[1]}</a>`).join('')}</div>${({overview,tasks,versions,reviews,submissions,team,write:writeTab,check,research,notes,assistant}[tab]||overview)(p)}`}
-function overview(p){return`<div class="card"><form id="ov" class="form">
+function overview(p){return priorCard(p)+`<div class="card"><form id="ov" class="form">
  ${fld('title','Title',p.title,'text','full')}
  <div><label>Type</label><select name="type">${TYPES.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>
  <div><label>Priority</label><select name="priority">${['Normal','High','Low'].map(t=>`<option ${t===p.priority?'selected':''}>${t}</option>`).join('')}</select></div>
  ${fld('venue','Journal / publisher / funder',p.venue)}${fld('deadline','Deadline',p.deadline,'date')}
  ${fld('collaborators','Collaborators / co-authors',p.collaborators)}${fld('tags','Tags (comma-separated)',p.tags)}
  ${fld('wordTarget','Word target',p.wordTarget,'number')}${fld('words','Current words',p.words,'number')}
- ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}${fld('callUrl','Call / ToR link',p.callUrl,'text','full')}
+ ${fld('doi','DOI / reference',p.doi)}${fld('url','Published URL',p.url)}${fld('callUrl','Call / ToR link',p.callUrl,'text','full')}${CALLTYPES.includes(p.type)?`<div><label>The call requires</label><select name="fmt">${CALLFMT.map(t=>`<option ${t===(p.fmt||CALLFMT[0])?'selected':''}>${t}</option>`).join('')}</select></div>`:''}
  <div><label>Google account (Drive)</label><select name="account">${accts().map(a=>`<option ${a.email===acctOf(p)?'selected':''}>${esc(a.email)}</option>`).join('')}</select></div>
  ${FUNDED.includes(p.type)?`${fld('amount','Amount requested',p.amount,'number')}${fld('currency','Currency',p.currency||'USD')}${fld('probability','Chance of success % (blank = stage default)',p.probability,'number')}${fld('decisionDate','Expected decision date',p.decisionDate,'date')}`:''}
  <div><label>Derived from (reuse map)</label><select name="parent"><option value="">None</option>${state.projects.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}" ${p.parent===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select></div>
@@ -453,7 +463,9 @@ function overview(p){return`<div class="card"><form id="ov" class="form">
 const fld=(n,l,v,t='text',c='')=>`<div class="${c}"><label>${l}</label><input name="${n}" type="${t}" value="${esc(v)}"></div>`;
 
 function tasks(p){return`<div class="card"><form id="addtask" class="row"><input name="t" placeholder="New task…" required><input name="d" type="date" style="width:160px">${p.team.length?`<select name="who" style="width:160px"><option value="">Assign to…</option>${p.team.map(m=>`<option value="${m.cid}">${esc(cname(m.cid))}</option>`).join('')}</select>`:''}<button class="pri">Add</button><button type="button" data-a="addTpl" data-id="${p.id}">Add type checklist</button><button type="button" data-a="addPubTpl" data-id="${p.id}">Publisher checklist</button><button type="button" data-a="autoDates" data-id="${p.id}" title="Spread undated and automatic dates between today and the deadline">Auto-set dates</button>${FUNDED.includes(p.type)||p.type==='Report / policy brief'?`<button type="button" data-a="addPack" data-id="${p.id}">Bid pack checklist</button>`:''}</form></div>
- <div class="card">${p.tasks.map(t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.link&&/^https:\/\/mail\.google\.com\//.test(t.link)?` <a class="sm2" target="_blank" rel="noopener" href="${esc(t.link)}">email</a>`:''}${t.by?` <span class="chip">added by ${esc(t.by)}</span>`:''}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`).join('')||'<span class="mute">No tasks.</span>'}</div>`}
+ ${(()=>{const st=PIPE[p.type]||[],ci=st.indexOf(p.stage),trow=t=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" style="width:auto" ${t.done?'checked':''} data-a-change="toggleTask" data-id="${p.id}" data-t="${t.id}"><span class="sp" style="${t.done?'text-decoration:line-through;color:var(--mute)':''}">${esc(t.title)}${t.link&&/^https:\/\/mail\.google\.com\//.test(t.link)?` <a class="sm2" target="_blank" rel="noopener" href="${esc(t.link)}">email</a>`:''}${t.by?` <span class="chip">added by ${esc(t.by)}</span>`:''}</span>${t.who?`<span class="chip">${esc(cname(t.who))}</span>`:''}<input type="date" style="width:140px" value="${esc(t.due)}" data-a-change="taskDue" data-id="${p.id}" data-t="${t.id}">${t.done?'':dueChip(t.due)}<button class="sm danger" data-a="delTask" data-id="${p.id}" data-t="${t.id}">✕</button></div>`;
+ const open=p.tasks.filter(t=>!t.done),now=open.filter(t=>!t.stage||st.indexOf(t.stage)<=ci||ci<0),later=open.filter(t=>!now.includes(t)),done=p.tasks.filter(t=>t.done);
+ return`<div class="card">${now.map(trow).join('')||'<span class="mute">Nothing to do at this stage.</span>'}</div>`+(later.length?`<details class="card"><summary>Later steps (${later.length})</summary>${later.map(trow).join('')}</details>`:'')+(done.length?`<details class="card"><summary>Done (${done.length})</summary>${done.map(trow).join('')}</details>`:'')})()}`}
 
 function versions(p){
  const docs=[...new Set(p.versions.map(v=>v.doc))];
@@ -491,8 +503,8 @@ const A={
  async connect(){try{await getToken(primary());if(offline){offline=false;await syncDown();render()}setSync();scheduleSync()}catch(e){alert(e.message)}},
  exportJson(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='writeflow-backup-'+today()+'.json';a.click()},
  importJson(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=async()=>{try{const s=JSON.parse(await i.files[0].text());if(!s.projects)throw 0;if(confirm('Replace current data with this file?')){const k=state.settings;state=fix(s);state.settings={...s.settings,...k};save();$('#dlg').close()}}catch(e){alert('Invalid backup file')}};i.click()},
- newProject(){openForm('New writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
-  const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type),versions:[],reviews:[],submissions:[],team:[],log:[]};
+ newProject(){openForm('Add a call or new writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'fmt',label:'The call requires',type:'select',options:CALLFMT,def:CALLFMT[0]},{name:'callUrl',label:'Call link',full:true},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
+  const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,callUrl:o.callUrl||'',fmt:o.fmt||CALLFMT[0],tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type,o.fmt),versions:[],reviews:[],submissions:[],team:[],log:[]};
   autoPlan(p);state.projects.push(p);location.hash='#/p/'+p.id;save()})},
  delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);p.gone=[...(p.gone||[]),d.t];save()},
@@ -632,6 +644,16 @@ const A={
    return{drafts,text:drafts.map(x=>{const r=p.reviews.find(r=>r.id===x.round),c=r&&r.points[x.i];return(r?r.reviewer:'Reviewer')+' #'+(x.i+1)+': '+(c?c.comment:'')+'\nDraft response: '+x.response}).join('\n\n')}})},
  aiApply(d){const p=P(d.id),x=AIX[d.id];let n=0;(x.drafts||[]).forEach(dr=>{const r=p.reviews.find(r=>r.id===dr.round),c=r&&r.points[dr.i];if(c&&!c.response){c.response=dr.response;n++}});save();toast(n+' draft response'+(n===1?'':'s')+' added. Review before sending.')},
  aiCopy(d){navigator.clipboard.writeText((AIX[d.id]||{}).text||'').then(()=>toast('Copied'))},
+ reuse(d){const p=P(d.id);openForm('Reuse for another call',[{name:'title',label:'Title',full:true,def:p.title,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:p.type},{name:'venue',label:'New journal / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'fmt',label:'The call requires',type:'select',options:CALLFMT,def:p.fmt||CALLFMT[0]},{name:'callUrl',label:'Call link',full:true}],{},o=>{
+  const latest={};p.versions.forEach(v=>{if(!latest[v.doc]||v.n>latest[v.doc].n)latest[v.doc]=v});
+  const cm=p.reviews.filter(r=>r.points.length).map(r=>({who:r.reviewer,points:r.points.map(x=>x.comment)}));
+  const st=PIPE[o.type],ti=(title,stage)=>({id:uid(),title,due:'',done:false,tpl:true,stage:stage||autoStage(o.type,title)});
+  const np={id:uid(),account:acctOf(p),title:o.title,type:o.type,stage:st[0],priority:'Normal',venue:o.venue||'',deadline:o.deadline,callUrl:o.callUrl||'',fmt:o.fmt,collaborators:p.collaborators,tags:p.tags,wordTarget:p.wordTarget,words:p.words,doi:'',url:'',notes:p.notes||'',folderId:'',created:Date.now(),reusedFrom:p.id,
+   prior:[...(p.prior||[]),{title:p.title,venue:p.venue,outcome:p.stage,date:today(),comments:cm}],
+   tasks:[ti('Read the call and requirements'),ti('Adapt the earlier draft to this call'),...(cm.length?[ti('Address the earlier reviewer comments')]:[]),ti('Format to the call template'),ti('Submit')],
+   versions:Object.values(latest).map(v=>({...v,id:uid(),note:'Reused from '+p.title})),reviews:[],submissions:[],team:[],log:[]};
+  p.reusedBy=np.id;autoPlan(np);state.projects.push(np);location.hash='#/p/'+np.id;save()})},
+ calTasks(){CALTASKS=!CALTASKS;render()},
  async calSync(){const items=calItems(true);if(!items.length)return toast('Nothing to sync');let ok=0;
   try{const base='https://www.googleapis.com/calendar/v3/calendars/primary/events';
    for(const x of items){const id='ev'+hex(x.id+'-'+x.k+'-'+(x.key||''));const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10);
@@ -722,24 +744,42 @@ function brDraw(){const d=$('#dlg'),F='application/vnd.google-apps.folder',cur=B
  <div class="row" style="margin-top:12px">${!BR.q&&BR.stack.length>1?(BR.mode==='import'?'<button class="pri" data-a="brScan">Scan this folder and import</button>':'<button class="pri" data-a="brUse">Use “'+esc(cur.name)+'” as this writing’s folder</button>'):''}<span class="sp"></span><button data-a="closeDlg">Close</button></div>`}
 /* ---------- Templates & calendar ---------- */
 const TEMPLATES={
- 'Consultancy bid':['Read the ToR and eligibility','Decide bid or no-bid','Confirm partners and roles','Understanding of the assignment','Methodology and work plan','Team and CVs','Past experience and references','Financial proposal','Internal review of the full bid','Compliance check against the ToR','Submit before the deadline'],
+ 'Consultancy bid':['Read the ToR and eligibility','Confirm partners and roles','Understanding of the assignment','Methodology and work plan','Team and CVs','Past experience and references','Financial proposal','Internal review of the full bid','Compliance check against the ToR','Submit before the deadline'],
  'Award / nomination':['Read criteria and eligibility','Confirm nominee and consent','Gather evidence and metrics','Testimonials and letters of support','Draft the nomination narrative','Supporting media and links','Review against the criteria','Submit'],
  'Fellowship / scholarship':['Read the call and criteria','Check eligibility and deadlines','Request referee letters','Personal statement','Research or study proposal','CV and transcripts','Budget or funding plan','Review against criteria','Submit','Prepare for interview'],
  'Thesis chapter':['Agree the chapter outline with the supervisor','Draft','Check against the research questions','Supervisor review','Revise','Format and references','Submit'],
  'Blog / op-ed':['Define audience and one key message','Outline','Draft','Check facts and sources','Edit and shorten','Submit or publish'],
  'Course / curriculum':['Needs analysis and learner profile','Learning outcomes','Assessment plan','Content outline','Develop materials','Accessibility and quality check','Pilot','Revise and launch'],
  'Grant proposal':['Read call, guidelines & eligibility','Confirm partners & roles','Concept note','Narrative draft','Work plan / logframe','Budget & justification','CVs / team profiles','Supporting annexes & letters','Internal review','Final proofread','Submit & save confirmation'],
- 'Journal article':['Select target journal & check scope','Outline & abstract','Draft introduction & methods','Draft results & discussion','References check','Co-author review','Format to journal guidelines','Cover letter','Ethics / data statements','Submit & save confirmation'],
+ 'Journal article':['Read the call and author guidelines','Outline & abstract','Draft introduction & methods','Draft results & discussion','References check','Co-author review','Format to journal guidelines','Cover letter','Ethics / data statements','Submit & save confirmation'],
  'Conference paper':['Check call & deadlines','Abstract','Full paper draft','Format to template','Co-author review','Submit','Prepare presentation'],
  'Research':['Research questions & design','Ethics approval','Instruments ready','Data collection','Data analysis','Write-up','Review'],
- 'Book chapter':['Confirm editor guidelines & word limit','Outline','Draft','Co-author review','References & permissions','Submit to editor','Respond to editor feedback'],
- 'Book':['Proposal to publisher','Chapter outline','Draft chapters','Full manuscript review','Permissions & figures','Index & front matter','Submit manuscript'],
+ 'Book chapter':['Read the call and editor guidelines','Outline','Draft','Co-author review','References & permissions','Submit to editor','Respond to editor feedback'],
+ 'Book':['Read the call and publisher requirements','Proposal to publisher','Chapter outline','Draft chapters','Full manuscript review','Permissions & figures','Index & front matter','Submit manuscript'],
  'Case study':['Define case & consent','Gather data / interviews','Draft','Participant review','Finalise'],
  'Report / policy brief':['Define audience & key messages','Gather evidence','Draft','Stakeholder review','Design / format','Publish & disseminate'],
  'Other':['Outline','Draft','Review','Finalise']};
-const tplTasks=t=>(TEMPLATES[t]||[]).map(x=>({id:uid(),title:x,due:'',done:false,stage:(STG[t]||{})[x]||''}));
+const pickSt=(t,c)=>c.find(x=>(PIPE[t]||[]).includes(x))||'';
+function autoStage(t,x){const R=pickSt(t,['Internal review','Review']),F=pickSt(t,['Final checks','Internal review','Review']);
+ if(/^(read|check|confirm)/i.test(x)&&/call|guideline|requirement|eligib|ToR/i.test(x))return'Call identified';
+ if(/^submit (the )?(abstract|concept|eoi)/i.test(x))return pickSt(t,['Abstract','Concept note','EOI','Drafting']);
+ if(/^(submit|send)/i.test(x))return'Submitted';
+ if(/respond/i.test(x))return pickSt(t,['Revisions'])||R;
+ if(/review|feedback/i.test(x))return R;
+ if(/format|template|cover|ethic|reference|permission|index|compliance|proofread/i.test(x))return F;
+ return pickSt(t,['Drafting','Writing'])}
+function tplTasks(t,f){f=f||CALLFMT[0];const call=CALLTYPES.includes(t),gen=call&&f!==CALLFMT[0],fund=FUNDED.includes(t),ab=fund?'concept note':'abstract',full=fund?'proposal':'paper';
+ let list=TEMPLATES[t]||[];
+ if(gen)list=f==='Abstract only'?['Read the call and requirements','Write the '+ab,'Format to the call template','Submit']
+  :f==='Extended abstract'?['Read the call and requirements','Write the extended '+ab,'Co-author review','Format to the call template','Submit']
+  :['Read the call and requirements','Write the '+ab,'Submit the '+ab,'Write the full '+full,'Co-author review','Format to the call template','Submit the full '+full];
+ return list.map(x=>({id:uid(),title:x,due:'',done:false,tpl:true,stage:gen?autoStage(t,x):((STG[t]||{})[x]||(call?autoStage(t,x):''))}))}
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
 let CAL=new Date();CAL.setDate(1);
+let CALTASKS=false;
+const isRejected=p=>['Rejected','Declined'].includes(p.stage)||(p.submissions.length&&p.submissions[p.submissions.length-1].status==='Rejected');
+function reuseBanner(p){return isRejected(p)&&!p.reusedBy?`<div class="card" style="border-color:var(--accent)"><div class="row"><span class="sp"><b>Not accepted.</b> Reuse this work for another call: files and reviewer comments carry over.</span><button class="sm pri" data-a="reuse" data-id="${p.id}">Reuse for another call</button></div></div>`:p.reusedBy&&P(p.reusedBy)?`<div class="card"><span class="mute">Reused in </span><a href="#/p/${p.reusedBy}">${esc(P(p.reusedBy).title)}</a></div>`:''}
+function priorCard(p){return(p.prior||[]).length?`<div class="card"><b>Earlier attempts</b>${p.prior.map(x=>`<details style="margin-top:6px"><summary>${esc(x.title)}${x.venue?' · '+esc(x.venue):''} · ${esc(x.outcome)}</summary>${x.comments.map(c=>`<p class="mute" style="margin:6px 0 2px">${esc(c.who)}</p><ul>${c.points.map(q=>`<li>${esc(q)}</li>`).join('')}</ul>`).join('')||'<p class="mute">No reviewer comments saved.</p>'}</details>`).join('')}</div>`:''}
 function calItems(ext){const it=[];state.projects.filter(isActive).forEach(p=>{
  if(p.deadline&&!p.ms)planMilestones(p);
  if(!ext&&p.ms&&p.ms[p.stage]&&p.stage!=='Submitted')it.push({d:p.ms[p.stage],t:'Finish '+p.stage,s:p.title+' (milestone)',id:p.id,k:'ms',key:'ms'});
@@ -747,13 +787,13 @@ function calItems(ext){const it=[];state.projects.filter(isActive).forEach(p=>{
  if(FUNDED.includes(p.type)&&p.decisionDate)it.push({d:p.decisionDate,t:'Decision expected: '+p.title,s:'Funding',id:p.id,k:'dl',key:'dec'});
  (ext?[]:p.tasks).filter(t=>!t.done&&t.due).forEach(t=>it.push({d:t.due,t:t.title,s:p.title,id:p.id,tab:'tasks',k:'task',key:t.id}));
  p.reviews.filter(r=>r.due&&r.points.some(x=>!x.done)).forEach(r=>it.push({d:r.due,t:'Respond: '+r.reviewer,s:p.title,id:p.id,tab:'reviews',k:'rev',key:r.id}))});return it}
-function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems();
+function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems(!CALTASKS);
  const off=(new Date(y,m,1).getDay()+6)%7,dim=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+dim)/7)*7;
  const pad=n=>String(n).padStart(2,'0');let h='';
  for(let i=0;i<cells;i++){const dn=i-off+1;if(dn<1||dn>dim){h+='<div style="background:var(--bg);min-height:92px"></div>';continue}
   const iso=`${y}-${pad(m+1)}-${pad(dn)}`;const its=items.filter(x=>x.d===iso);
   h+=`<div style="min-height:92px;padding:4px;background:var(--card);${iso===today()?'outline:2px solid var(--brand);':''}"><div class="mute" style="font-size:12px">${dn}</div>${its.map(x=>`<a href="#/p/${x.id}/${x.tab||'overview'}" title="${esc(x.s)}" style="display:block;font-size:11px;margin:2px 0;padding:1px 4px;border-radius:4px;background:${x.k==='dl'?'var(--bad)':x.k==='rev'?'var(--warn)':'var(--chip)'};color:${x.k==='task'?'var(--ink)':'#fff'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(x.t)}</a>`).join('')}</div>`}
- return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="exportIcs">Export .ics</button><button data-a="calSync">Sync to Google Calendar</button></div>
+ return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="calTasks">${CALTASKS?'Hide tasks':'Show tasks'}</button><button data-a="exportIcs">Export .ics</button><button data-a="calSync">Sync to Google Calendar</button></div>
  <div class="card" style="padding:0;overflow:hidden"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line)">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="mute" style="background:var(--card);padding:4px;font-size:12px">${d}</div>`).join('')}${h}</div></div>
  <p class="mute">Red = project deadline · Orange = review response due · Grey = task. The .ics file is a snapshot you can import into Google Calendar.</p>`}
 
@@ -849,7 +889,7 @@ document.addEventListener('change',e=>{const t=e.target,d=t.dataset||{};
  else if('selall' in d){document.querySelectorAll('[data-sel]').forEach(x=>{t.checked?SEL.add(x.dataset.sel):SEL.delete(x.dataset.sel)});render()}});
 function notifyDue(force){try{if(!('Notification' in window)||Notification.permission!=='granted'||localStorage.getItem('wf.notify')!=='1')return;
  const t=today();if(!force&&localStorage.getItem('wf.notified')===t)return;
- const it=calItems().filter(i=>days(i.d)<=2).sort((a,b)=>a.d.localeCompare(b.d));if(!it.length&&!force)return;localStorage.setItem('wf.notified',t);
+ const it=calItems(true).filter(i=>days(i.d)<=2).sort((a,b)=>a.d.localeCompare(b.d));if(!it.length&&!force)return;localStorage.setItem('wf.notified',t);
  const od=it.filter(i=>days(i.d)<0).length;
  new Notification('WriteFlow',{body:it.length?od+' overdue, '+(it.length-od)+' due within 2 days. Next: '+it[0].t:'Nothing due in the next 2 days.'})}catch(e){}}
 async function snapshot(){const t=today();if(localStorage.getItem('wf.snap')===t)return;
@@ -1368,7 +1408,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t.dataset.in==='q'){fi
 document.addEventListener('submit',e=>{
  const f=e.target;if(!['ov','addtask','nt'].includes(f.id))return;e.preventDefault();
  const p=P(route().id),fd=Object.fromEntries(new FormData(f));
- if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}const oldDl=p.deadline;Object.assign(p,fd);if(p.deadline&&p.deadline!==oldDl)autoPlan(p);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
+ if(f.id==='ov'){if(fd.account&&fd.account!==acctOf(p)&&p.folderId){if(!confirm('Changing the account unlinks the current Drive folder (files stay in Drive). Continue?'))return;p.folderId=''}const typeChanged=fd.type!==p.type;p.private=!!fd.private;delete fd.private;if(fd.words!==undefined){if(fd.words!==''&&+fd.words!==+(p.words||0))setWords(p,fd.words);delete fd.words}const oldDl=p.deadline,oldFmt=p.fmt||CALLFMT[0];Object.assign(p,fd);if(CALLTYPES.includes(p.type)&&fd.fmt&&fd.fmt!==oldFmt){const keep=p.tasks.filter(t=>t.done||!t.tpl),have=new Set(keep.map(t=>t.title.toLowerCase())),rd=keep.some(t=>/^read the (call|tor)/i.test(t.title));p.tasks=[...keep,...tplTasks(p.type,p.fmt).filter(t=>!have.has(t.title.toLowerCase())&&!(rd&&/^read the (call|tor)/i.test(t.title)))];autoPlan(p,true)}if(p.deadline&&p.deadline!==oldDl)autoPlan(p);if(typeChanged&&!PIPE[p.type].includes(p.stage))p.stage=PIPE[p.type][0]}
  if(f.id==='addtask')p.tasks.push({id:uid(),title:fd.t,due:fd.d,done:false,who:fd.who||'',m:Date.now()});
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});

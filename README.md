@@ -28,6 +28,12 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - Daily Drive backups (last 14 kept) with restore; installable offline app (PWA) with an offline copy mode
 - Sync: data saved as `writeflow-data.json` in Drive, so any device sees the same state; JSON export/import as backup
 
+## How work flows
+- Every writing starts from a call you have already decided to pursue (no go/no-go step). Add it with the call link, deadline and what the call requires: full paper/proposal, extended abstract, abstract only, or abstract then full paper. The task list fits that choice and can be changed later.
+- Only deadlines, decision dates and review responses reach reminders, the dashboard, notifications and Google Calendar. Tasks stay inside each writing, showing the current stage first; later steps and done tasks are collapsed.
+- **Reuse:** when a writing is rejected, *Reuse for another call* (also on the dashboard) creates a new writing with the latest files, reviewer comments and a short task list. The original links to it.
+- Less-used pages sit under **More** in the sidebar. Reviews and Submissions tabs appear once a writing is submitted.
+
 ## Public view (share a read-only dashboard)
 - Anyone with the link sees the dashboard, upcoming and overdue items, pending tasks, stages, reviews and file names. No sign-in.
 - To open a file, a visitor must sign in to Google (Drive asks them). It only opens if you shared that file or folder with their account. Use a writing's Team tab, *Share Drive folder*.
