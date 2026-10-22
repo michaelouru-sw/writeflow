@@ -289,7 +289,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-21.5';
+const BUILD='2026-10-22.1';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -634,7 +634,7 @@ const A={
  aiCopy(d){navigator.clipboard.writeText((AIX[d.id]||{}).text||'').then(()=>toast('Copied'))},
  async calSync(){const items=calItems();if(!items.length)return toast('Nothing to sync');let ok=0;
   try{const base='https://www.googleapis.com/calendar/v3/calendars/primary/events';
-   for(const x of items){const id='wf'+hex(x.id+'-'+x.k+'-'+(x.key||''));const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10);
+   for(const x of items){const id='ev'+hex(x.id+'-'+x.k+'-'+(x.key||''));const [Y,M,D]=x.d.split('-').map(Number);const nx=new Date(Date.UTC(Y,M-1,D+1)).toISOString().slice(0,10);
     const body={id,summary:x.t+(x.k==='dl'?'':' - '+x.s),description:'From WriteFlow',start:{date:x.d},end:{date:nx},reminders:{useDefault:false,overrides:[{method:'popup',minutes:900}]}};
     const hd={'Content-Type':'application/json',Authorization:'Bearer '+await getToken(primary())};
     let r=await fetch(base,{method:'POST',headers:hd,body:JSON.stringify(body)});
