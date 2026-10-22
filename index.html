@@ -229,18 +229,18 @@ function initGIS(){const id=state.settings.clientId;if(!id||!window.google)retur
 function setSync(m){if(m)syncMsg=m;else syncMsg=!state.settings.clientId?'Set Client ID in Settings':signedIn?(offline?'Offline: saved on this device':syncFail?'Drive is not responding. Using the local copy; retrying…':'Drive: connected'):'Not signed in';
  const el=$('#sync');if(el)el.title='Build '+BUILD;if(el)el.innerHTML=esc(syncMsg)+(signedIn&&(offline||!tokenOk(primary()))?'<br><button class="sm" data-a="connect">Reconnect</button>':'')}
 function drawAccts(){const el=$('#accts');if(el)el.innerHTML='<div class="mute" style="font-size:12px;padding:0 8px"><b>Accounts</b>'+accts().map(a=>`<div>${esc(a.email)}${a.primary?' ★':''}</div>`).join('')+'</div>'}
-function requestToken(hint,select){return new Promise((res,rej)=>{
+function requestToken(hint,select,prompt){return new Promise((res,rej)=>{
  if(!tokenClient)initGIS();
  if(!tokenClient)return rej(new Error('Google sign-in is still loading or the Client ID is missing. Try again in a moment.'));
  tokenClient.callback=r=>{if(r.error)return rej(new Error(r.error));res({t:r.access_token,exp:Date.now()+r.expires_in*1000})};
  tokenClient.error_callback=e=>rej(new Error(e.type||'Google sign-in failed'));
- tokenClient.requestAccessToken(select?{prompt:'select_account'}:{prompt:'',hint})})}
+ tokenClient.requestAccessToken(select?{prompt:'select_account'}:{prompt:prompt||'',hint})})}
 async function whoami(t){const r=await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)',{headers:{Authorization:'Bearer '+t}});if(!r.ok)throw new Error('Could not verify the Google account (is the Drive API enabled?)');return(await r.json()).user}
 async function getToken(email){email=email||primary();if(tokenOk(email))return TOK[email].t;
  const r=await requestToken(email,false);const u=await whoami(r.t);
  if(u.emailAddress.toLowerCase()!==email)throw new Error('You signed in as '+u.emailAddress+' but '+email+' is needed');
- TOK[email]=r;setSync();return r.t}
-async function addAccount(){const r=await requestToken('',true);const u=await whoami(r.t),email=u.emailAddress.toLowerCase();TOK[email]=r;
+ TOK[email]=r;saveTok();setSync();return r.t}
+async function addAccount(){const r=await requestToken('',true);const u=await whoami(r.t),email=u.emailAddress.toLowerCase();TOK[email]=r;saveTok();
  const list=accts();let a=list.find(x=>x.email===email);if(!a){a={email,name:u.displayName,primary:!list.length};list.push(a)}state.settings.accounts=list;return a}
 async function g(url,o={},acct){const t=await getToken(acct),m=(o.method||'GET').toUpperCase();
  for(let k=0;;k++){const r=await fetch(url,{...o,headers:{...(o.headers||{}),Authorization:'Bearer '+t}});if(r.ok)return r;
@@ -271,7 +271,7 @@ async function pushData(){
   const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:'writeflow-data.json',parents:[root]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
-function scheduleSync(){if(!signedIn||offline)return;clearTimeout(syncTimer);setSync('Drive: saving…');
+function scheduleSync(){if(!signedIn||offline)return;if(!tokenOk(primary())){setSync('Session expired. Click Reconnect to sync.');return}clearTimeout(syncTimer);setSync('Drive: saving…');
  syncTimer=setTimeout(async()=>{try{if(!pulled)await syncDown();await syncAllShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
@@ -281,14 +281,14 @@ async function syncDown(){const remote=await pullData();
  pulled=true;syncFail=false;setSync('Drive: connected & synced')}
 let pulled=false,retryT,syncFail=false;
 async function doLogin(){try{if(primary())await getToken(primary());else await addAccount()}catch(e){signedIn=false;alert(errMsg(e));render();return}
- signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));
+ signedIn=true;localStorage.setItem(KEY,JSON.stringify(state));try{localStorage.setItem('wf.sess','1')}catch(e){}
  try{await syncDown();render();notifyDue();scheduleSync()}
  catch(e){pulled=false;syncFail=true;setSync();render();toast('Drive error: '+errMsg(e));retrySync()}}
 function retrySync(){clearTimeout(retryT);retryT=setTimeout(async()=>{try{await syncDown();render();scheduleSync()}catch(e){syncFail=true;setSync();retrySync()}},30000)}
 async function signOut(){if(!confirm("Sign out? Changes are synced to Drive first, then this device's local copy is cleared."))return;
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
- state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};signedIn=false;location.hash='';render()}
+ state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
 const BUILD='2026-10-21.5';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
@@ -363,29 +363,31 @@ function rail(p,compact,ro){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.sta
 let SEL=new Set();
 const wrow=(p,sel)=>`<div class="wrow" data-go="#/p/${p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function dashboard(){
- const act=state.projects.filter(isActive),items=calItems().sort((a,b)=>a.d.localeCompare(b.d));
- const od=items.filter(i=>days(i.d)<0),soon=items.filter(i=>{const n=days(i.d);return n>=0&&n<=30}).length;
+ const act=state.projects.filter(isActive);
+ const att=[];
+ act.forEach(p=>{if(p.deadline&&!p.ms)planMilestones(p);const why=[];let rank=9e9;const dn=p.deadline?days(p.deadline):null;
+  if(dn!==null&&dn<0){why.push('Deadline passed '+fmt(p.deadline));rank=Math.min(rank,dn)}
+  else if(dn!==null&&dn<=7){why.push(dn===0?'Due today':`Due in ${dn} day${dn===1?'':'s'}`);rank=Math.min(rank,dn)}
+  const m=p.ms&&p.ms[p.stage];if(m&&p.stage!=='Submitted'&&days(m)<0){why.push('Behind schedule on '+p.stage);rank=Math.min(rank,days(m))}
+  p.reviews.forEach(r=>{if(r.due&&r.points.some(x=>!x.done)){const n=days(r.due);if(n<=7){why.push(n<0?`Review response overdue (${r.reviewer})`:`Review response due ${fmt(r.due)}`);rank=Math.min(rank,n)}}});
+  if(FUNDED.includes(p.type)&&p.decisionDate){const n=days(p.decisionDate);if(n!==null&&n<=14&&n>=-30){why.push(n<0?'Decision date passed':'Decision expected '+fmt(p.decisionDate));rank=Math.min(rank,n)}}
+  if(why.length)att.push({p,why,rank})});
+ att.sort((a,b)=>a.rank-b.rank);
+ const overdue=act.filter(p=>p.deadline&&days(p.deadline)<0).length,soon=act.filter(p=>p.deadline&&days(p.deadline)>=0&&days(p.deadline)<=30).length;
  const open=state.projects.reduce((n,p)=>n+p.reviews.reduce((m,r)=>m+r.points.filter(x=>!x.done).length,0),0);
  const h=new Date().getHours(),hello=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
  const date=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
  const head=`<div class="head"><div><h1>${hello}</h1><p class="sub">${date}</p></div><div class="acts"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  if(!state.projects.length)return head+`<div class="card empty"><b style="color:var(--ink)">No writings yet</b><p>Import your existing folders from Drive, or start with a new grant, article or chapter.</p><div class="row" style="justify-content:center"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  const kpi=(n,l,href,cls)=>`<a class="kpi ${cls||''}" href="${href}"><b>${n}</b><span>${l}</span></a>`;
- const sched=planSched(),today0=sched.D[0].items;
- const shownTasks=new Set(today0.map(o=>o.t.id));
- const due0=items.filter(i=>i.k!=='task'&&days(i.d)<=0);
- const row=i=>`<a class="item" href="#/p/${i.id}/${i.tab||'overview'}"><span class="sp"><span class="it">${esc(i.t)}</span><br><span class="mute sm2">${esc(i.s)}</span></span><span class="mute sm2">${fmt(i.d)}</span>${dueChip(i.d)}</a>`;
- const trow=o=>`<div class="item" style="cursor:default"><input type="checkbox" style="width:auto" data-a-change="toggleTask" data-id="${o.p.id}" data-t="${o.t.id}"><span class="sp"><span class="it">${esc(o.t.title)}</span><br><a class="mute sm2" href="#/p/${o.p.id}/tasks">${esc(o.p.title)}</a></span>${days(o.t.due)<0?dueChip(o.t.due):''}</div>`;
- const focusN=today0.length+due0.length;
- const focus=`<section class="panel"><div class="row" style="margin-bottom:8px"><h2 class="sp" style="margin:0">Today</h2><a class="sm2" href="#/plan">Plan the week</a></div>${due0.map(row).join('')}${today0.map(trow).join('')||''}${focusN?'':'<span class="mute">Nothing due today. Use the time to write.</span>'}</section>`;
- const up=items.filter(i=>{const n=days(i.d);return n>0&&n<=21&&!(i.k==='task'&&shownTasks.has(i.key))}).slice(0,7);
- const coming=`<section class="panel"><h2>Coming up</h2>${up.map(row).join('')||'<span class="mute">Nothing in the next three weeks.</span>'}</section>`;
- const sorted=act.slice().sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9')).slice(0,6);
- const writings=`<section class="panel"><div class="row" style="margin-bottom:8px"><h2 class="sp" style="margin:0">Active writings</h2><a class="sm2" href="#/list">All ${act.length}</a></div>${sorted.map(p=>`<a class="item" href="#/p/${p.id}"><span class="sp"><span class="it">${esc(p.title)}</span><br><span class="mute sm2">${esc(p.type)}${p.venue?' · '+esc(p.venue):''}</span></span><span class="chip">${esc(p.stage)}</span>${p.deadline?dueChip(p.deadline):''}</a>`).join('')||'<span class="mute">All writings are closed.</span>'}</section>`;
+ const paper=p=>`<a class="item" href="#/p/${p.id}"><span class="sp"><span class="it">${esc(p.title)}</span><br><span class="mute sm2">${esc(p.type)}${p.venue?' · '+esc(p.venue):''}</span></span><span class="chip">${esc(p.stage)}</span>${p.deadline?`<span class="mute sm2">${fmt(p.deadline)}</span>${dueChip(p.deadline)}`:''}</a>`;
+ const byDl=act.slice().sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+ const deadlines=`<section class="panel"><div class="row" style="margin-bottom:8px"><h2 class="sp" style="margin:0">Deadlines</h2><a class="sm2" href="#/list">All writings</a></div>${byDl.slice(0,10).map(paper).join('')||'<span class="mute">All writings are closed.</span>'}${act.length>10?`<p class="mute sm2" style="margin:8px 0 0">${act.length-10} more in All writings.</p>`:''}</section>`;
+ const attention=`<section class="panel"><h2>Needs attention</h2>${att.slice(0,6).map(x=>`<a class="item" href="#/p/${x.p.id}"><span class="sp"><span class="it">${esc(x.p.title)}</span><br><span class="mute sm2">${esc(x.why.slice(0,2).join(' · '))}</span></span></a>`).join('')||'<span class="mute">Nothing needs attention. You are on track.</span>'}</section>`;
  const recent=state.projects.flatMap(p=>p.versions.map(v=>({...v,pid:p.id,pt:p.title}))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
  const files=recent.length?`<section class="panel"><h2>Recent files</h2>${recent.map(v=>`<div class="item" style="cursor:default"><span class="sp">${v.driveId?`<button class="link" data-a="view" data-id="${v.pid}" data-v="${v.id}">${esc(v.fileName||v.doc)}</button>`:(v.link?`<a href="${esc(v.link)}" target="_blank" rel="noopener">${esc(v.fileName||v.doc)}</a>`:esc(v.fileName||v.doc))}<br><span class="mute sm2">${esc(v.pt)} · ${esc(v.label)}</span></span><span class="mute sm2">${fmt(v.date)}</span></div>`).join('')}</section>`:'';
- return head+`<div class="kpis">${kpi(act.length,'Active writings','#/list')}${kpi(od.length,'Overdue','#/plan',od.length?'alert':'')}${kpi(soon,'Due in 30 days','#/calendar')}${kpi(open,'Open review points','#/list')}</div>
- <div class="dash"><div class="stack">${focus}${coming}</div><div class="stack">${writings}${logMini()}${files}</div></div>`}
+ return head+`<div class="kpis">${kpi(act.length,'Active writings','#/list')}${kpi(overdue,'Past deadline','#/list',overdue?'alert':'')}${kpi(soon,'Due in 30 days','#/calendar')}${kpi(open,'Open review points','#/list')}</div>
+ <div class="dash"><div class="stack">${deadlines}</div><div class="stack">${attention}${logMini()}${files}</div></div>`}
 function logMini(){const m=dailyWords(),ds=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);ds.push(isoDate(d))}
  const vals=ds.map(d=>m[d]||0),mx=Math.max(1,...vals),wk=vals.slice(-7).reduce((a,b)=>a+b,0);
  let st=0;const d0=new Date();if(!m[today()])d0.setDate(d0.getDate()-1);while(m[isoDate(d0)]>0){st++;d0.setDate(d0.getDate()-1)}
@@ -482,7 +484,7 @@ const A={
  addAcct(){addAccount().then(()=>{save();A.settings()}).catch(e=>alert(e.message))},
  setPrimary(d){accts().forEach(x=>x.primary=x.email===d.e);save();A.settings()},
  rmAcct(d){const n=state.projects.filter(p=>p.account===d.e).length;if(!confirm('Remove '+d.e+'?'+(n?' '+n+' writing(s) use it and will fall back to the primary account (their Drive folder links are cleared).':'')))return;
-  state.settings.accounts=accts().filter(x=>x.email!==d.e);delete TOK[d.e];state.projects.forEach(p=>{if(p.account===d.e){p.account='';p.folderId=''}});save();A.settings()},
+  state.settings.accounts=accts().filter(x=>x.email!==d.e);delete TOK[d.e];saveTok();state.projects.forEach(p=>{if(p.account===d.e){p.account='';p.folderId=''}});save();A.settings()},
  login:()=>doLogin(),
  signOut:()=>signOut(),
  saveClient(){const v=($('#cid').value||'').trim();if(!v)return;state.settings.clientId=v;localStorage.setItem(KEY,JSON.stringify(state));initGIS();render()},
@@ -973,6 +975,20 @@ function autoPlan(p,all){const dl=p.deadline;if(!dl)return 0;
  body.forEach(t=>{cum+=w(t);t.due=wk(addDays(t0,Math.round(span*cum/total)));t.auto=true;t.m=Date.now()});
  finals.forEach(t=>{t.due=dl;t.auto=true;t.m=Date.now()});
  return staged.length+open.length}
+/* ---------- Remembered sign-in ---------- */
+const TKEY='wf.tok';let refreshT;
+function saveTok(){try{localStorage.setItem(TKEY,JSON.stringify(TOK))}catch(e){}armRefresh()}
+function loadTok(){try{const t=JSON.parse(localStorage.getItem(TKEY))||{};Object.keys(t).forEach(k=>{if(t[k]&&Date.now()<t[k].exp-60000)TOK[k]=t[k]})}catch(e){}}
+function armRefresh(){clearTimeout(refreshT);const e=primary(),t=TOK[e];if(!t)return;refreshT=setTimeout(()=>silentRefresh().then(ok=>{if(!ok)setSync('Session expired. Click Reconnect to keep syncing.')}),Math.max(15000,t.exp-Date.now()-5*60000))}
+async function silentRefresh(){const e=primary();if(!e||!state.settings.clientId)return false;
+ try{for(let i=0;i<40&&!window.google;i++)await sleep(250);initGIS();
+  const r=await Promise.race([requestToken(e,false,'none'),new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),8000))]);
+  const u=await whoami(r.t);if(u.emailAddress.toLowerCase()!==e)return false;TOK[e]=r;saveTok();setSync();return true}catch(x){return false}}
+async function resumeSession(){if(localStorage.getItem('wf.sess')!=='1'||!primary()||!state.settings.clientId)return;
+ loadTok();signedIn=true;render();
+ if(!tokenOk(primary()))await silentRefresh();
+ if(tokenOk(primary())){try{await syncDown();render();notifyDue();scheduleSync()}catch(e){pulled=false;syncFail=true;setSync();render();retrySync()}}
+ else{setSync('Session expired. Click Reconnect to sync.');render()}}
 /* ---------- Co-author sharing ---------- */
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
 const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
@@ -1357,7 +1373,7 @@ document.addEventListener('submit',e=>{
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
 
-applyTheme();render();if(window.google)initGIS();
+applyTheme();render();if(window.google)initGIS();resumeSession();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
