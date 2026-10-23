@@ -295,7 +295,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-23.3';
+const BUILD='2026-10-23.4';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -507,7 +507,7 @@ const A={
  newProject(){openForm('Add a call or new writing',[{name:'title',label:'Title',full:true,req:1},{name:'type',label:'Type',type:'select',options:TYPES,def:'Journal article'},{name:'venue',label:'Journal / publisher / funder'},{name:'deadline',label:'Deadline',type:'date'},{name:'fmt',label:'The call requires',type:'select',options:CALLFMT,def:CALLFMT[0]},{name:'callUrl',label:'Call link',full:true},{name:'collaborators',label:'Collaborators'},...(accts().length>1?[{name:'account',label:'Google account (Drive)',type:'select',options:accts().map(a=>a.email),def:primary()}]:[])],{},o=>{
   const p={id:uid(),account:o.account||primary(),title:o.title,type:o.type,stage:PIPE[o.type][0],priority:'Normal',venue:o.venue,deadline:o.deadline,collaborators:o.collaborators,callUrl:o.callUrl||'',fmt:o.fmt||CALLFMT[0],tags:'',wordTarget:'',words:'',doi:'',url:'',notes:'',folderId:'',created:Date.now(),tasks:tplTasks(o.type,o.fmt),versions:[],reviews:[],submissions:[],team:[],log:[]};
   autoPlan(p);state.projects.push(p);location.hash='#/p/'+p.id;save()})},
- delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
+ delProject(d){if(confirm('Delete this writing from WriteFlow? Drive files are kept.')){const gone=P(d.id);if(gone.sharedFid){(state.settings.dismissed=state.settings.dismissed||[]).push(gone.sharedFid)}state.projects=state.projects.filter(p=>p.id!==d.id);UNDO=()=>{state.projects.push(gone);save()};location.hash='#/list';save();toast('Writing deleted',true)}},
  delTask(d){const p=P(d.id);p.tasks=p.tasks.filter(t=>t.id!==d.t);p.gone=[...(p.gone||[]),d.t];save()},
  upload(d){const p=P(d.id);const docs=[...new Set(p.versions.map(v=>v.doc))];
   openForm('Upload to Google Drive',[{name:'file',label:'File',type:'file',full:1},{name:'doc',label:'Document name',list:docs,def:docs[0]||'Manuscript',req:1},{name:'kind',label:'Kind',type:'select',options:KINDS},{name:'note',label:'Note (what changed)',full:1}],{},async o=>{
@@ -601,7 +601,7 @@ const A={
  undo(){if(UNDO){UNDO();UNDO=null}$('#toast').classList.remove('on')},
  bulkClear(){SEL.clear();render()},
  bulkDelete(){const n=SEL.size;if(!n)return;if(!confirm('Delete '+n+' writing'+(n>1?'s':'')+' from WriteFlow? Files in Drive are not touched.'))return;
-  const gone=state.projects.filter(p=>SEL.has(p.id));state.projects=state.projects.filter(p=>!SEL.has(p.id));SEL.clear();UNDO=()=>{state.projects.push(...gone);save()};save();toast(n+' deleted',true)},
+  const gone=state.projects.filter(p=>SEL.has(p.id));gone.forEach(g=>{if(g.sharedFid)(state.settings.dismissed=state.settings.dismissed||[]).push(g.sharedFid)});state.projects=state.projects.filter(p=>!SEL.has(p.id));SEL.clear();UNDO=()=>{state.projects.push(...gone);save()};save();toast(n+' deleted',true)},
  bulkStage(){const st=($('#bulkStage')||{}).value;if(!st)return toast('Choose a stage first');let ok=0;state.projects.forEach(p=>{if(SEL.has(p.id)&&PIPE[p.type].includes(st)){p.stage=st;p.updated=Date.now();ok++}});
   const skipped=SEL.size-ok;SEL.clear();save();toast(ok+' moved to '+st+(skipped?', '+skipped+' skipped (stage not in their pipeline)':''))},
  goOffline(){offline=true;signedIn=true;render()},
@@ -1057,10 +1057,26 @@ function shareFail(p,m,em,folder,e){dlgShow(`<h3 style="margin-top:0">Google cou
  <p class="mute">This is often temporary on Google's side. You can retry, or share it yourself: open the folder in Drive, click Share, add <b>${esc(em)}</b> as Editor, then tell WriteFlow it is done.</p>
  <div class="row" style="flex-wrap:wrap"><button class="pri" data-a="shareRetry" data-id="${p.id}" data-cid="${m.cid}">Retry</button>${folder?`<a class="btn" target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${folder}?authuser=${encodeURIComponent(acctOf(p))}">Open folder in Drive</a>`:''}<button data-a="shareManual" data-id="${p.id}" data-cid="${m.cid}">I shared it manually</button><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
 async function unshareMember(p,m){if(!m.permId||!p.folderId)return;try{await g(DAPI+'/'+p.folderId+'/permissions/'+m.permId,{method:'DELETE'},acctOf(p));toast('Access removed')}catch(e){}}
+const SH_SKIP=['account','shared','sharedFid','sh_sig','ms','lead','updated','reusedBy'];
+const shareable=p=>{const o={};Object.keys(p).forEach(k=>{if(!SH_SKIP.includes(k))o[k]=p[k]});return JSON.parse(JSON.stringify(o))};
+const stab=v=>Array.isArray(v)?'['+v.map(stab).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stab(v[k])).join(',')+'}':JSON.stringify(v);
+const shH=p=>{const t=stab(shareable(p));let x=5381;for(let i=0;i<t.length;i++)x=((x<<5)+x+t.charCodeAt(i))|0;return x};
+function shareContacts(p){const ids=new Set([...p.team.map(m=>m.cid),...p.tasks.map(t=>t.who).filter(Boolean)]);return state.contacts.filter(c=>ids.has(c.id)).map(c=>({...c}))}
+function applyFull(p,full,fc){const map={};(fc||[]).forEach(c=>{let m=c.email&&state.contacts.find(x=>x.email&&x.email.toLowerCase()===c.email.toLowerCase())||state.contacts.find(x=>x.id===c.id);if(!m){m={...c};state.contacts.push(m)}map[c.id]=m.id});
+ const f=JSON.parse(JSON.stringify(full));(f.team||[]).forEach(m=>{if(map[m.cid])m.cid=map[m.cid]});(f.tasks||[]).forEach(t=>{if(t.who&&map[t.who])t.who=map[t.who]});
+ Object.keys(p).forEach(k=>{if(!SH_SKIP.includes(k)&&!(k in f))delete p[k]});Object.assign(p,f)}
+function pullFull(p,doc){const cur=shH(p),rem=(()=>{const t={...doc.full};const tmp=JSON.parse(JSON.stringify(t));SH_SKIP.forEach(k=>delete tmp[k]);const x=stab(tmp);let h=5381;for(let i=0;i<x.length;i++)h=((h<<5)+h+x.charCodeAt(i))|0;return h})();
+ if(rem===cur){p.sh_sig=cur;return{changed:false,push:false}}
+ const lc=cur!==p.sh_sig,rc=rem!==p.sh_sig;
+ if(rc&&!lc){applyFull(p,doc.full,doc.fc);p.sh_sig=shH(p);return{changed:true,push:false}}
+ if(lc&&!rc)return{changed:false,push:true};
+ const rn=(doc.upd||0)>(p.updated||0),loc={tasks:JSON.parse(JSON.stringify(p.tasks)),gone:p.gone||[],comments:JSON.parse(JSON.stringify(p.comments||[]))};
+ if(rn){applyFull(p,doc.full,doc.fc);mergeShared(p,loc)}else mergeShared(p,{tasks:doc.full.tasks,gone:doc.full.gone,comments:doc.full.comments});
+ p.sh_sig=shH(p);return{changed:true,push:true}}
 function sharedDoc(p){return{v:1,pid:p.id,title:p.title,type:p.type,stage:p.stage,venue:p.venue,deadline:p.deadline,
  tasks:p.tasks.map(t=>({id:t.id,title:t.title,due:t.due||'',done:!!t.done,who:t.who?cname(t.who):'',m:t.m||0,by:t.by||''})),gone:p.gone||[],comments:p.comments||[],
  files:p.versions.map(v=>({doc:v.doc,label:v.label,kind:v.kind,date:v.date,name:v.fileName,id:v.driveId||''})),
- team:p.team.map(m=>({name:cname(m.cid),role:m.role})),rev:Date.now()}}
+ team:p.team.map(m=>({name:cname(m.cid),role:m.role})),full:shareable(p),fc:shareContacts(p),upd:p.updated||0,rev:Date.now()}}
 function mergeShared(p,doc){let ch=false;const gone=new Set([...(p.gone||[]),...(doc.gone||[])]);p.gone=[...gone];
  (doc.tasks||[]).forEach(rt=>{if(gone.has(rt.id))return;const lt=p.tasks.find(t=>t.id===rt.id);
   if(!lt){p.tasks.push({id:rt.id,title:rt.title,due:rt.due||'',done:!!rt.done,who:'',m:rt.m||0,by:rt.by||'co-author'});ch=true}
@@ -1068,16 +1084,19 @@ function mergeShared(p,doc){let ch=false;const gone=new Set([...(p.gone||[]),...
  p.tasks=p.tasks.filter(t=>!gone.has(t.id));
  const ids=new Set((p.comments=p.comments||[]).map(c=>c.id));(doc.comments||[]).forEach(c=>{if(!ids.has(c.id)){p.comments.push(c);ch=true}});
  p.comments.sort((a,b)=>a.at-b.at);return ch}
-async function syncShared(p){if(!p.shared||!p.folderId)return false;const a=acctOf(p);
- const q=`name='${SHF}' and '${p.folderId}' in parents and trashed=false`;
- const f=(await(await g(DAPI+'?fields=files(id)&q='+encodeURIComponent(q),{},a)).json()).files[0];let ch=false;
- if(f){const doc=await(await g(DAPI+'/'+f.id+'?alt=media',{},a)).json();ch=mergeShared(p,doc)}
+async function syncShared(p){if(!p.shared||(!p.folderId&&!p.sharedFid))return false;const a=acctOf(p);
+ let f=p.sharedFid?{id:p.sharedFid}:null;
+ if(!f){const q=`name='${SHF}' and '${p.folderId}' in parents and trashed=false`;f=(await(await g(DAPI+'?fields=files(id)&q='+encodeURIComponent(q),{},a)).json()).files[0]}
+ let ch=false,push=!f;
+ if(f){const doc=await(await g(DAPI+'/'+f.id+'?alt=media',{},a)).json();
+  if(doc.full){const r=pullFull(p,doc);ch=r.changed;push=push||r.push}else{ch=mergeShared(p,doc);push=true}}
+ if(!push)return ch;
  const body=JSON.stringify(sharedDoc(p));
  if(f)await g('https://www.googleapis.com/upload/drive/v3/files/'+f.id+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body},a);
  else{const b='wfb'+uid();await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:SHF,parents:[p.folderId]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`},a)}
- return ch}
+ p.sh_sig=shH(p);return ch}
 async function syncAllShared(){let any=false;for(const p of state.projects){if(!p.shared)continue;try{if(await syncShared(p))any=true}catch(e){}}
- if(any){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render()}}
+ if(any){state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));render()}else localStorage.setItem(KEY,JSON.stringify(state))}
 setInterval(()=>{if(signedIn&&!offline&&state.projects.some(p=>p.shared))syncAllShared().catch(()=>{})},180000);
 function commentsCard(p){const c=p.comments||[];return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Co-author comments</h3><button class="sm" data-a="addComment" data-id="${p.id}">Add comment</button></div>${c.length?c.slice().reverse().map(x=>`<div class="item" style="cursor:default"><span class="sp">${esc(x.text)}<br><span class="mute sm2">${esc(x.by)} · ${new Date(x.at).toLocaleString()}</span></span></div>`).join(''):'<p class="mute" style="margin:8px 0 0">No comments yet.</p>'}</div>`}
 let SHR=null,SHRERR='',SHRLOAD=false;
@@ -1088,10 +1107,14 @@ async function loadShared(){SHRLOAD=true;SHRERR='';SHRT=Date.now();const out=[],
   const r=await(await g(DAPI+'?pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,owners(emailAddress,displayName))&q='+encodeURIComponent(q),{},a.email)).json();
   for(const f of r.files||[]){if(seen.has(f.id))continue;seen.add(f.id);try{const d=await(await g(DAPI+'/'+f.id+'?alt=media',{},a.email)).json();if(d&&d.title)out.push({fid:f.id,acct:a.email,owner:(f.owners||[])[0]||{},d})}catch(e){}}}
   catch(e){SHRERR=e.message}}}
- const sig=JSON.stringify(out.map(o=>[o.fid,o.d.rev]));const changed=sig!==SHRSIG||SHR===null;SHRSIG=sig;SHR=out;SHRLOAD=false;
+ let adopted=false;const dis=(state.settings.dismissed=state.settings.dismissed||[]);
+ out.forEach(o=>{if(!o.d.full||dis.includes(o.fid))return;const ex=state.projects.find(p=>p.sharedFid===o.fid||p.id===o.d.full.id);if(ex){if(!ex.sharedFid&&ex.id===o.d.full.id)return;return}
+  const np={};applyFull(np,o.d.full,o.d.fc);np.account=o.acct;np.sharedFid=o.fid;np.shared=true;np.lead=o.owner.displayName||o.owner.emailAddress||'';np.updated=Date.now();state.projects.push(np);np.sh_sig=shH(np);adopted=true});
+ if(adopted){fix(state);state.updated=Date.now();localStorage.setItem(KEY,JSON.stringify(state));scheduleSync()}
+ const sig=JSON.stringify(out.map(o=>[o.fid,o.d.rev]))+adopted;const changed=sig!==SHRSIG||SHR===null;SHRSIG=sig;SHR=out;SHRLOAD=false;
  const ae=document.activeElement;if(changed&&!$('#dlg').open&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)))render()}
 function refreshShared(force){if(!signedIn||offline||SHRLOAD)return;if(!force&&Date.now()-SHRT<60000)return;loadShared().catch(()=>{SHRLOAD=false})}
-const shP=()=>(SHR||[]).map((s,i)=>({id:'sh'+i,sh:true,i,title:s.d.title,type:s.d.type,stage:s.d.stage,venue:s.d.venue||'',deadline:s.d.deadline||'',lead:(s.owner.displayName||s.owner.emailAddress||''),tasks:s.d.tasks||[],reviews:[],versions:[],submissions:[],team:[]}));
+const shP=()=>(SHR||[]).map((s,i)=>s.d.full?null:({id:'sh'+i,sh:true,i,title:s.d.title,type:s.d.type,stage:s.d.stage,venue:s.d.venue||'',deadline:s.d.deadline||'',lead:(s.owner.displayName||s.owner.emailAddress||''),tasks:s.d.tasks||[],reviews:[],versions:[],submissions:[],team:[]})).filter(Boolean);
 setInterval(()=>refreshShared(true),180000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShared()});
 async function shEdit(i,fn){const s=SHR[i];try{const doc=await(await g(DAPI+'/'+s.fid+'?alt=media',{},s.acct)).json();fn(doc);doc.rev=Date.now();
