@@ -295,7 +295,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-23.1';
+const BUILD='2026-10-23.2';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -1423,6 +1423,8 @@ document.addEventListener('submit',e=>{
  p.updated=Date.now();save()});
 
 handleInvite();applyTheme();render();if(window.google)initGIS();resumeSession();
+async function loadConfig(){try{if(state.settings.clientId)return;const c=await(await fetch('config.json',{cache:'no-cache'})).json();if(c&&/^[\w.-]+\.apps\.googleusercontent\.com$/.test(c.clientId||'')&&!state.settings.clientId){state.settings.clientId=c.clientId;localStorage.setItem(KEY,JSON.stringify(state));if(window.google)initGIS();render();resumeSession()}}catch(e){}}
+loadConfig();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
