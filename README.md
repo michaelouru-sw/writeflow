@@ -41,6 +41,7 @@ Writing project manager with publication-style tracking. Static app: runs free o
 - It publishes a sanitised `writeflow-public.json` (link-readable) in your WriteFlow Drive folder, refreshed on each sync. Notes, people and amounts are excluded unless you tick them. Tick *Hide from the public view* in a writing's Overview to leave it out. *Stop sharing* revokes the link.
 
 ## Co-authors
+- **Automatic:** writings shared with you load on their own (at sign-in, every few minutes, and when you return to the tab) and appear on the dashboard, All writings and Calendar, marked "shared by". Nothing to click.
 - **Invite link:** adding a team member with an email gives them editor access and Drive emails them a WriteFlow link. *Invite* on the Team row copies the link or opens an email. The link carries your Client ID, so they need no setup: they sign in with the invited Google account and land on Shared with me.
 - **No setup for others:** add a `config.json` next to `index.html` containing `{"clientId":"YOUR-ID.apps.googleusercontent.com"}`. Anyone opening the site then just clicks *Sign in with Google*; their writings are stored in their own Drive. Invite links also carry the Client ID.
 - While the consent screen is in Testing mode, add each invitee under *Audience → Test users* in Google Cloud, or Google blocks their sign-in.

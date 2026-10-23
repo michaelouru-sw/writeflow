@@ -278,7 +278,7 @@ async function pushData(){
   await g('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp})}}
 async function pullData(){const f=await findData();if(!f)return null;return(await g(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json()}
 function scheduleSync(){if(!signedIn||offline)return;if(!tokenOk(primary())){setSync('Session expired. Click Reconnect to sync.');return}clearTimeout(syncTimer);setSync('Drive: saving…');
- syncTimer=setTimeout(async()=>{try{if(!pulled)await syncDown();await syncAllShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
+ syncTimer=setTimeout(async()=>{try{if(!pulled)await syncDown();await syncAllShared();refreshShared();await pushData();snapshot().catch(()=>{});pushPublic().catch(()=>{});setSync('Drive: saved '+new Date().toLocaleTimeString())}catch(e){setSync('Sync failed - reconnect')}},2000)}
 function mergeAcc(a=[],b=[]){const m=[...a];b.forEach(x=>{if(!m.find(y=>y.email===x.email))m.push({...x,primary:false})});return m}
 async function syncDown(){const remote=await pullData();
  if(remote&&(remote.updated||0)>state.updated&&(!state.projects.length||confirm("A newer copy exists in Google Drive. Load it? (Cancel keeps this browser's copy and overwrites Drive)"))){
@@ -295,7 +295,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-23.2';
+const BUILD='2026-10-23.3';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -368,9 +368,9 @@ function rail(p,compact,ro){const st=PIPE[p.type]||PIPE.Other,i=st.indexOf(p.sta
  return`<div class="rail${compact?' c':''}">${st.map((x,k)=>{const cls='nd'+(k<i?' done':'')+(k===i?' now':'');
   return compact?`<span class="${cls}" title="${esc(x)}"><i></i></span>`:ro?`<span class="${cls}" style="cursor:default"><i></i><em>${esc(x)}</em></span>`:`<button class="${cls}" data-a="setStage" data-id="${p.id}" data-s="${esc(x)}" title="Move to ${esc(x)}"><i></i><em>${esc(x)}</em>${p.ms&&p.ms[x]?`<small class="${k===i&&days(p.ms[x])<0?'late':''}">by ${new Date(p.ms[x]+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</small>`:''}</button>`}).join('')}</div>`}
 let SEL=new Set();
-const wrow=(p,sel)=>`<div class="wrow" data-go="#/p/${p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
+const wrow=(p,sel)=>`<div class="wrow" data-go="${p.sh?'#/shared':'#/p/'+p.id}"><div class="c1">${sel?`<input type="checkbox" class="selbox" data-sel="${p.id}" ${SEL.has(p.id)?'checked':''} aria-label="Select ${esc(p.title)}">`:''}<div><div class="ttl">${esc(p.title)}</div><div class="meta"><span>${esc(p.type)}</span>${p.venue?`<span>${esc(p.venue)}</span>`:''}${p.sh?`<span class="chip">Shared by ${esc(p.lead)}</span>`:''}${prioChip(p)}</div></div></div><div class="c2">${rail(p,true)}<div class="stg">${esc(p.stage)}</div></div><div class="c3">${p.deadline?`${fmt(p.deadline)} ${isActive(p)?dueChip(p.deadline):''}`:'<span class="mute">No deadline</span>'}</div><div class="c4">${prog(p)}</div></div>`;
 function dashboard(){
- const act=state.projects.filter(isActive);
+ const own=state.projects.filter(isActive),act=own.concat(shP().filter(isActive));
  const att=[];
  act.forEach(p=>{if(p.deadline&&!p.ms)planMilestones(p);const why=[];let rank=9e9;const dn=p.deadline?days(p.deadline):null;
   if(dn!==null&&dn<0){why.push('Deadline passed '+fmt(p.deadline));rank=Math.min(rank,dn)}
@@ -385,12 +385,12 @@ function dashboard(){
  const h=new Date().getHours(),hello=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
  const date=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
  const head=`<div class="head"><div><h1>${hello}</h1><p class="sub">${date}</p></div><div class="acts"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">Add a call</button></div></div>`;
- if(!state.projects.length)return head+`<div class="card empty"><b style="color:var(--ink)">No writings yet</b><p>Import your existing folders from Drive, or start with a new grant, article or chapter.</p><div class="row" style="justify-content:center"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
+ if(!state.projects.length&&!act.length)return head+`<div class="card empty"><b style="color:var(--ink)">No writings yet</b><p>Import your existing folders from Drive, or start with a new grant, article or chapter.</p><div class="row" style="justify-content:center"><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div></div>`;
  const kpi=(n,l,href,cls)=>`<a class="kpi ${cls||''}" href="${href}"><b>${n}</b><span>${l}</span></a>`;
- const paper=p=>`<a class="item" href="#/p/${p.id}"><span class="sp"><span class="it">${esc(p.title)}</span><br><span class="mute sm2">${esc(p.type)}${p.venue?' · '+esc(p.venue):''}</span></span><span class="chip">${esc(p.stage)}</span>${p.deadline?`<span class="mute sm2">${fmt(p.deadline)}</span>${dueChip(p.deadline)}`:''}</a>`;
+ const paper=p=>`<a class="item" href="${p.sh?'#/shared':'#/p/'+p.id}"><span class="sp"><span class="it">${esc(p.title)}</span><br><span class="mute sm2">${esc(p.type)}${p.venue?' · '+esc(p.venue):''}${p.sh?' · shared by '+esc(p.lead):''}</span></span><span class="chip">${esc(p.stage)}</span>${p.deadline?`<span class="mute sm2">${fmt(p.deadline)}</span>${dueChip(p.deadline)}`:''}</a>`;
  const byDl=act.slice().sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
  const deadlines=`<section class="panel"><div class="row" style="margin-bottom:8px"><h2 class="sp" style="margin:0">Deadlines</h2><a class="sm2" href="#/list">All writings</a></div>${byDl.slice(0,10).map(paper).join('')||'<span class="mute">All writings are closed.</span>'}${act.length>10?`<p class="mute sm2" style="margin:8px 0 0">${act.length-10} more in All writings.</p>`:''}</section>`;
- const attention=`<section class="panel"><h2>Needs attention</h2>${att.slice(0,6).map(x=>`<a class="item" href="#/p/${x.p.id}"><span class="sp"><span class="it">${esc(x.p.title)}</span><br><span class="mute sm2">${esc(x.why.slice(0,2).join(' · '))}</span></span></a>`).join('')||'<span class="mute">Nothing needs attention. You are on track.</span>'}</section>`;
+ const attention=`<section class="panel"><h2>Needs attention</h2>${att.slice(0,6).map(x=>`<a class="item" href="${x.p.sh?'#/shared':'#/p/'+x.p.id}"><span class="sp"><span class="it">${esc(x.p.title)}</span><br><span class="mute sm2">${esc(x.why.slice(0,2).join(' · '))}</span></span></a>`).join('')||'<span class="mute">Nothing needs attention. You are on track.</span>'}</section>`;
  const rej=state.projects.filter(p=>isRejected(p)&&!p.reusedBy).slice(0,3);
  const reuse=rej.length?`<section class="panel"><h2>Ready to reuse</h2>${rej.map(p=>`<div class="item" style="cursor:default"><span class="sp"><a class="it" href="#/p/${p.id}">${esc(p.title)}</a><br><span class="mute sm2">${esc(p.venue||p.type)} · ${esc(p.stage)}</span></span><button class="sm" data-a="reuse" data-id="${p.id}">Reuse</button></div>`).join('')}</section>`:'';
  const recent=state.projects.flatMap(p=>p.versions.map(v=>({...v,pid:p.id,pt:p.title}))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
@@ -407,12 +407,13 @@ let filt={q:'',type:'',showClosed:false};
 function list(){SEL=new Set([...SEL].filter(id=>P(id)));
  const rows=state.projects.filter(p=>(filt.showClosed||isActive(p))&&(!filt.type||p.type===filt.type)&&(!filt.q||(p.title+p.venue+p.tags+p.collaborators).toLowerCase().includes(filt.q.toLowerCase())))
   .sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+ const shRows=shP().filter(p=>(filt.showClosed||isActive(p))&&(!filt.type||p.type===filt.type)&&(!filt.q||(p.title+p.venue+p.lead).toLowerCase().includes(filt.q.toLowerCase())));
  const allOn=rows.length>0&&rows.every(p=>SEL.has(p.id));
  const stages=[...new Set(state.projects.filter(p=>SEL.has(p.id)).flatMap(p=>PIPE[p.type]))];
  const bulk=SEL.size?`<div class="bulk"><b>${SEL.size} selected</b><select id="bulkStage"><option value="">Set stage…</option>${stages.map(x=>`<option>${esc(x)}</option>`).join('')}</select><button data-a="bulkStage">Apply</button><span class="sp"></span><button class="danger" data-a="bulkDelete">Delete selected</button><button data-a="bulkClear">Clear</button></div>`:'';
  return`<div class="top"><h2>All writings</h2><input style="width:220px" placeholder="Search title, venue, tags" value="${esc(filt.q)}" data-in="q"><select style="width:170px" data-in="type"><option value="">All types</option>${TYPES.map(t=>`<option ${filt.type===t?'selected':''}>${t}</option>`).join('')}</select>
  <label class="row"><input type="checkbox" ${filt.showClosed?'checked':''} data-in="showClosed"> Show closed</label><button data-a="pubExport">Export publications</button><button data-a="importDrive">Import from Drive</button><button class="pri" data-a="newProject">New writing</button></div>
- ${bulk}${rows.length?`<label class="row mute sm2" style="margin:0 0 8px 4px"><input type="checkbox" data-selall ${allOn?'checked':''}> Select all ${rows.length}</label><div class="wlist">${rows.map(p=>wrow(p,true)).join('')}</div>`:'<div class="card empty">No writings match. Clear the search or add a new one.</div>'}`}
+ ${bulk}${rows.length?`<label class="row mute sm2" style="margin:0 0 8px 4px"><input type="checkbox" data-selall ${allOn?'checked':''}> Select all ${rows.length}</label><div class="wlist">${rows.map(p=>wrow(p,true)).join('')}</div>`:(shRows.length?'':'<div class="card empty">No writings match. Clear the search or add a new one.</div>')}${shRows.length?`<h3 style="margin:18px 0 6px">Shared with you</h3><div class="wlist">${shRows.map(p=>wrow(p,false)).join('')}</div>`:''}`}
 
 /* ---------- Board ---------- */
 let boardType='';
@@ -537,7 +538,7 @@ const A={
  pubClose(){const v=$('#viewer');v.classList.remove('on');v.innerHTML='';document.body.classList.remove('noscroll')},
  pubRefresh(){PUB=null;PUBERR='';renderPublic()},
  addComment(d){const p=P(d.id);openForm('Add comment',[{name:'text',label:'Comment',type:'textarea',full:1,req:1}],{},o=>{(p.comments=p.comments||[]).push({id:uid(),by:primary()||'Lead',at:Date.now(),text:o.text});save()})},
- shRefresh(){SHR=null;SHRLOAD=false;render()},
+ shRefresh(){SHR=null;SHRLOAD=false;SHRSIG='';render()},
  shTask(d){openForm('New task',[{name:'title',label:'Task',req:1,full:1},{name:'due',label:'Due',type:'date'}],{},o=>shEdit(+d.s,doc=>{doc.tasks.push({id:uid(),title:o.title,due:o.due||'',done:false,who:'',m:Date.now(),by:primary()||'co-author'})}))},
  shComment(d){openForm('Add comment',[{name:'text',label:'Comment',type:'textarea',full:1,req:1}],{},o=>shEdit(+d.s,doc=>{(doc.comments=doc.comments||[]).push({id:uid(),by:primary()||'co-author',at:Date.now(),text:o.text})}))},
  shOpen(d){const s=SHR[+d.s],fl=(s.d.files||[]).filter(f=>f.id);openViewer({acct:s.acct,sub:s.d.title,list:fl.map(f=>({id:f.id,label:f.label,name:f.name||f.doc})),idx:+d.k})},
@@ -783,7 +784,7 @@ let CALTASKS=false;
 const isRejected=p=>['Rejected','Declined'].includes(p.stage)||(p.submissions.length&&p.submissions[p.submissions.length-1].status==='Rejected');
 function reuseBanner(p){return isRejected(p)&&!p.reusedBy?`<div class="card" style="border-color:var(--accent)"><div class="row"><span class="sp"><b>Not accepted.</b> Reuse this work for another call: files and reviewer comments carry over.</span><button class="sm pri" data-a="reuse" data-id="${p.id}">Reuse for another call</button></div></div>`:p.reusedBy&&P(p.reusedBy)?`<div class="card"><span class="mute">Reused in </span><a href="#/p/${p.reusedBy}">${esc(P(p.reusedBy).title)}</a></div>`:''}
 function priorCard(p){return(p.prior||[]).length?`<div class="card"><b>Earlier attempts</b>${p.prior.map(x=>`<details style="margin-top:6px"><summary>${esc(x.title)}${x.venue?' · '+esc(x.venue):''} · ${esc(x.outcome)}</summary>${x.comments.map(c=>`<p class="mute" style="margin:6px 0 2px">${esc(c.who)}</p><ul>${c.points.map(q=>`<li>${esc(q)}</li>`).join('')}</ul>`).join('')||'<p class="mute">No reviewer comments saved.</p>'}</details>`).join('')}</div>`:''}
-function calItems(ext){const it=[];state.projects.filter(isActive).forEach(p=>{
+function calItems(ext){const it=[];shP().filter(isActive).forEach(p=>{if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Shared deadline',id:p.id,k:'dl',sh:true})});state.projects.filter(isActive).forEach(p=>{
  if(p.deadline&&!p.ms)planMilestones(p);
  if(!ext&&p.ms&&p.ms[p.stage]&&p.stage!=='Submitted')it.push({d:p.ms[p.stage],t:'Finish '+p.stage,s:p.title+' (milestone)',id:p.id,k:'ms',key:'ms'});
  if(p.deadline)it.push({d:p.deadline,t:p.title,s:'Deadline',id:p.id,k:'dl'});
@@ -795,7 +796,7 @@ function calendar(){const y=CAL.getFullYear(),m=CAL.getMonth(),items=calItems(!C
  const pad=n=>String(n).padStart(2,'0');let h='';
  for(let i=0;i<cells;i++){const dn=i-off+1;if(dn<1||dn>dim){h+='<div style="background:var(--bg);min-height:92px"></div>';continue}
   const iso=`${y}-${pad(m+1)}-${pad(dn)}`;const its=items.filter(x=>x.d===iso);
-  h+=`<div style="min-height:92px;padding:4px;background:var(--card);${iso===today()?'outline:2px solid var(--brand);':''}"><div class="mute" style="font-size:12px">${dn}</div>${its.map(x=>`<a href="#/p/${x.id}/${x.tab||'overview'}" title="${esc(x.s)}" style="display:block;font-size:11px;margin:2px 0;padding:1px 4px;border-radius:4px;background:${x.k==='dl'?'var(--bad)':x.k==='rev'?'var(--warn)':'var(--chip)'};color:${x.k==='task'?'var(--ink)':'#fff'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(x.t)}</a>`).join('')}</div>`}
+  h+=`<div style="min-height:92px;padding:4px;background:var(--card);${iso===today()?'outline:2px solid var(--brand);':''}"><div class="mute" style="font-size:12px">${dn}</div>${its.map(x=>`<a href="${x.sh?'#/shared':'#/p/'+x.id+'/'+(x.tab||'overview')}" title="${esc(x.s)}" style="display:block;font-size:11px;margin:2px 0;padding:1px 4px;border-radius:4px;background:${x.k==='dl'?'var(--bad)':x.k==='rev'?'var(--warn)':'var(--chip)'};color:${x.k==='task'?'var(--ink)':'#fff'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(x.t)}</a>`).join('')}</div>`}
  return`<div class="top"><h2>${CAL.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button data-a="calPrev">‹</button><button data-a="calToday">Today</button><button data-a="calNext">›</button><button data-a="calTasks">${CALTASKS?'Hide tasks':'Show tasks'}</button><button data-a="exportIcs">Export .ics</button><button data-a="calSync">Sync to Google Calendar</button></div>
  <div class="card" style="padding:0;overflow:hidden"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line)">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="mute" style="background:var(--card);padding:4px;font-size:12px">${d}</div>`).join('')}${h}</div></div>
  <p class="mute">Red = project deadline · Orange = review response due · Grey = task. The .ics file is a snapshot you can import into Google Calendar.</p>`}
@@ -1049,7 +1050,7 @@ async function shareMember(p,m){const em=emailOf(m.cid);if(!em){toast('Add an em
  try{folder=await projectFolder(p)}catch(e){return shareFail(p,m,em,'',e)}
  for(const note of ['true','false']){for(let t=0;t<2;t++){
   try{const r=await(await g(DAPI+'/'+folder+'/permissions?supportsAllDrives=true&sendNotificationEmail='+note+'&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em,...(note==='true'?{emailMessage:inviteText(p)}:{})})},acctOf(p))).json();
-   m.permId=r.id;m.shared=em;p.shared=true;save();toast('Editor access given to '+em);return}
+   m.permId=r.id;m.shared=em;p.shared=true;save();syncShared(p).catch(()=>{});toast('Shared with '+em+'. It appears on their dashboard automatically.');return}
   catch(e){last=e;if(!/"code":\s*5\d\d|Internal Error|backend|rate/i.test(String(e.message)))return shareFail(p,m,em,folder,e);await sleep(1500)}}}
  shareFail(p,m,em,folder,last)}
 function shareFail(p,m,em,folder,e){dlgShow(`<h3 style="margin-top:0">Google could not share the folder</h3><p>${esc(errMsg(e))}</p>
@@ -1080,11 +1081,19 @@ async function syncAllShared(){let any=false;for(const p of state.projects){if(!
 setInterval(()=>{if(signedIn&&!offline&&state.projects.some(p=>p.shared))syncAllShared().catch(()=>{})},180000);
 function commentsCard(p){const c=p.comments||[];return`<div class="card"><div class="row"><h3 class="sp" style="margin:0">Co-author comments</h3><button class="sm" data-a="addComment" data-id="${p.id}">Add comment</button></div>${c.length?c.slice().reverse().map(x=>`<div class="item" style="cursor:default"><span class="sp">${esc(x.text)}<br><span class="mute sm2">${esc(x.by)} · ${new Date(x.at).toLocaleString()}</span></span></div>`).join(''):'<p class="mute" style="margin:8px 0 0">No comments yet.</p>'}</div>`}
 let SHR=null,SHRERR='',SHRLOAD=false;
-async function loadShared(){SHRLOAD=true;SHRERR='';const out=[],seen=new Set();
- for(const a of accts()){try{const q=`name='${SHF}' and sharedWithMe=true and trashed=false`;
-  const r=await(await g(DAPI+'?pageSize=100&fields=files(id,owners(emailAddress,displayName))&q='+encodeURIComponent(q),{},a.email)).json();
-  for(const f of r.files||[]){if(seen.has(f.id))continue;seen.add(f.id);try{const d=await(await g(DAPI+'/'+f.id+'?alt=media',{},a.email)).json();out.push({fid:f.id,acct:a.email,owner:(f.owners||[])[0]||{},d})}catch(e){}}}catch(e){SHRERR=e.message}}
- SHR=out;SHRLOAD=false;render()}
+let SHRSIG='',SHRT=0;
+async function loadShared(){SHRLOAD=true;SHRERR='';SHRT=Date.now();const out=[],seen=new Set();
+ const qs=[`name='${SHF}' and trashed=false and not 'me' in owners`,`name='${SHF}' and sharedWithMe=true and trashed=false`];
+ for(const a of accts()){for(const q of qs){try{
+  const r=await(await g(DAPI+'?pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,owners(emailAddress,displayName))&q='+encodeURIComponent(q),{},a.email)).json();
+  for(const f of r.files||[]){if(seen.has(f.id))continue;seen.add(f.id);try{const d=await(await g(DAPI+'/'+f.id+'?alt=media',{},a.email)).json();if(d&&d.title)out.push({fid:f.id,acct:a.email,owner:(f.owners||[])[0]||{},d})}catch(e){}}}
+  catch(e){SHRERR=e.message}}}
+ const sig=JSON.stringify(out.map(o=>[o.fid,o.d.rev]));const changed=sig!==SHRSIG||SHR===null;SHRSIG=sig;SHR=out;SHRLOAD=false;
+ const ae=document.activeElement;if(changed&&!$('#dlg').open&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)))render()}
+function refreshShared(force){if(!signedIn||offline||SHRLOAD)return;if(!force&&Date.now()-SHRT<60000)return;loadShared().catch(()=>{SHRLOAD=false})}
+const shP=()=>(SHR||[]).map((s,i)=>({id:'sh'+i,sh:true,i,title:s.d.title,type:s.d.type,stage:s.d.stage,venue:s.d.venue||'',deadline:s.d.deadline||'',lead:(s.owner.displayName||s.owner.emailAddress||''),tasks:s.d.tasks||[],reviews:[],versions:[],submissions:[],team:[]}));
+setInterval(()=>refreshShared(true),180000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShared()});
 async function shEdit(i,fn){const s=SHR[i];try{const doc=await(await g(DAPI+'/'+s.fid+'?alt=media',{},s.acct)).json();fn(doc);doc.rev=Date.now();
  await g('https://www.googleapis.com/upload/drive/v3/files/'+s.fid+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(doc)},s.acct);s.d=doc;render()}catch(e){alert('Could not save: '+e.message);render()}}
 function shared(){if(SHR===null&&!SHRLOAD)loadShared();
