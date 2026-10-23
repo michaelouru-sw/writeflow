@@ -295,7 +295,7 @@ async function signOut(){if(!confirm("Sign out? Changes are synced to Drive firs
  try{clearTimeout(syncTimer);await pushData()}catch(e){if(!confirm('Could not sync to Drive ('+e.message+'). Sign out anyway and lose unsynced changes on this device?'))return}
  const keep={clientId:state.settings.clientId,accounts:accts().map(a=>({...a}))};
  state=fix({projects:[],settings:keep,updated:0});localStorage.setItem(KEY,JSON.stringify(state));TOK={};try{localStorage.removeItem(TKEY);localStorage.removeItem('wf.sess')}catch(e){}signedIn=false;location.hash='';render()}
-const BUILD='2026-10-22.2';
+const BUILD='2026-10-23.1';
 async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive connection…</h3><p class="mute">Google may ask you to approve sign-in.</p>');
  const out=[];let tok;
  try{tok=await getToken(primary())}catch(e){return dlgShow(`<h3 style="margin-top:0">Could not sign in to Google</h3><p>${esc(errMsg(e))}</p><div class="row"><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
@@ -313,7 +313,7 @@ async function diagDrive(){dlgShow('<h3 style="margin-top:0">Testing the Drive c
  <p class="mute sm2">${bad?'If every step fails with 500 or Internal Error, the problem is on Google\'s side. Check the Google Workspace Status Dashboard and try again later.':'Sign-in should now work.'} Build ${BUILD}.</p>
  <div class="row"><button class="sm" data-a="copyDiag">Copy report</button><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)}
 function loginView(){const has=!!state.settings.clientId;
- return`<div style="max-width:420px;margin:12vh auto"><div class="card" style="padding:24px;text-align:center"><div class="brand" style="justify-content:center;margin:0 0 12px"><i>W</i>WriteFlow</div><p class="mute">Sign in with Google to load your writings from Drive.</p>
+ return`<div style="max-width:420px;margin:12vh auto"><div class="card" style="padding:24px;text-align:center"><div class="brand" style="justify-content:center;margin:0 0 12px"><i>W</i>WriteFlow</div><p class="mute">${sessionStorage.getItem('wf.invite')?'You have been invited to a writing. Sign in with the Google account the invite was sent to.':'Sign in with Google to load your writings from Drive.'}</p>
  ${has?`<button class="pri" data-a="login" style="width:100%;padding:10px">Sign in with Google</button>${state.projects.length?'<button data-a="goOffline" style="width:100%;margin-top:8px">Open offline copy</button>':''}${primary()?`<p class="mute">Primary account: ${esc(primary())}</p>`:''}<button class="sm" data-a="diag">Test Drive connection</button>`
  :`<div style="text-align:left"><label class="mute">Google OAuth Client ID</label><input id="cid" placeholder="xxxx.apps.googleusercontent.com"><button class="pri" data-a="saveClient" style="margin-top:8px;width:100%">Save and continue</button><p class="mute"><a target="_blank" rel="noopener" href="https://github.com/michaelouru-sw/writeflow#2-connect-google-drive-one-time-free">How to get one</a></p></div>`}
  <p class="mute" style="font-size:12px;margin-bottom:0">Your data lives in your Drive. This browser keeps only a cache until you sign out.</p><p class="mute" style="font-size:11px;margin:6px 0 0">Build ${BUILD}</p></div></div>`}
@@ -614,6 +614,9 @@ const A={
  teamNew(d){const p=P(d.id);personForm(null,c=>addMem(p,c.id,'Co-author'))},
  editMember(d){const p=P(d.id),m=p.team[+d.i];openForm('Role in this writing',[{name:'role',label:'Role',type:'select',options:ROLES}],m,o=>{m.role=o.role;save()})},
  rmMember(d){const p=P(d.id),m=p.team.splice(+d.i,1)[0];if(m)unshareMember(p,m);save()},
+ invite(d){const p=P(d.id),m=p.team[+d.i],em=emailOf(m.cid)||'',l=inviteLink(),sub=encodeURIComponent('Invitation: '+p.title+' on WriteFlow'),body=encodeURIComponent(inviteText(p));
+  dlgShow(`<h3 style="margin-top:0">Invite ${esc(cname(m.cid))}</h3><p class="mute">They sign in with ${em?'<b>'+esc(em)+'</b>':'the Google account you shared with'} and the writing appears under Shared with me. Drive also emails them when you give editor access.</p><input readonly value="${esc(l)}" onclick="this.select()"><div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="pri" data-a="copyInvite">Copy link</button><a class="btn" href="mailto:${esc(em)}?subject=${sub}&body=${body}">Email invite</a><span class="sp"></span><button data-a="closeDlg">Close</button></div>`)},
+ copyInvite(){navigator.clipboard.writeText(inviteLink()).then(()=>toast('Invite link copied'))},
  shareMem(d){const p=P(d.id);shareMember(p,p.team[+d.i])},
  addVenue(){venueForm(null)},
  editVenue(d){venueForm(state.venues.find(v=>v.id===d.id))},
@@ -807,8 +810,8 @@ function people(){const rows=state.contacts.slice().sort((a,b)=>a.name.localeCom
 function personForm(c,cb){openForm(c?'Edit person':'Add person',[{name:'name',label:'Name',req:1,full:1},{name:'org',label:'Affiliation'},{name:'email',label:'Email',type:'email'},{name:'orcid',label:'ORCID (0000-0000-0000-0000)'},{name:'notes',label:'Notes',type:'textarea',full:1}],c,o=>{
  if(c)Object.assign(c,o);else{c={id:uid(),...o};state.contacts.push(c)}save();if(cb)cb(c)})}
 function team(p){
- return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Team members can be assigned to tasks from the Tasks tab. A member with an email gets editor access to this writing's Drive folder and sees the writing under Shared with me.</p></div>${commentsCard(p)}
- ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)} ${m.permId||m.manual?'<span class="chip ok" title="Editor access to the Drive folder">Editor</span>':`<button class="sm" data-a="shareMem" data-id="${p.id}" data-i="${i}">Give editor access</button>`}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
+ return`<div class="card"><div class="row" style="flex-wrap:wrap"><button class="pri" data-a="addMember" data-id="${p.id}">Add team member</button><button data-a="teamNew" data-id="${p.id}">New person</button><button data-a="shareFolder" data-id="${p.id}">Share Drive folder</button></div><p class="mute" style="margin:10px 0 0">Adding a member with an email gives them editor access to this writing's Drive folder and sends them an email with the invite link. They open the link, sign in with that Google account and see the writing under Shared with me. Use <b>Invite</b> on a row to copy the link or send it yourself.</p></div>${commentsCard(p)}
+ ${p.team.length?`<div class="card"><table><tr><th>Name</th><th>Role</th><th>Contact</th><th>Open tasks</th><th></th></tr>${p.team.map((m,i)=>{const c=state.contacts.find(x=>x.id===m.cid)||{name:'(removed)'};return`<tr><td><b>${esc(c.name)}</b><div class="mute sm2">${esc(c.org||'')}</div></td><td>${esc(m.role)} ${m.permId||m.manual?'<span class="chip ok" title="Editor access to the Drive folder">Editor</span>':`<button class="sm" data-a="shareMem" data-id="${p.id}" data-i="${i}">Give editor access</button>`}</td><td>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}</td><td>${p.tasks.filter(t=>!t.done&&t.who===m.cid).length}</td><td><button class="sm" data-a="invite" data-id="${p.id}" data-i="${i}">Invite</button> <button class="sm" data-a="editMember" data-id="${p.id}" data-i="${i}">Role</button> <button class="sm danger" data-a="rmMember" data-id="${p.id}" data-i="${i}">Remove</button></td></tr>`}).join('')}</table></div>`:'<div class="card empty">No team yet. Add the co-authors, editors or partners on this writing.</div>'}`}
 
 const VKINDS=['Journal','Conference','Funder','Publisher'];
 function venues(){const rows=state.venues.slice().sort((a,b)=>(a.kind+a.name).localeCompare(b.kind+b.name));
@@ -1032,6 +1035,12 @@ async function resumeSession(){if(localStorage.getItem('wf.sess')!=='1'||!primar
 /* ---------- Co-author sharing ---------- */
 const SHF='_writeflow.json',DAPI='https://www.googleapis.com/drive/v3/files';
 const emailOf=cid=>((state.contacts.find(c=>c.id===cid)||{}).email||'').trim().toLowerCase();
+const inviteLink=()=>{const c=state.settings.clientId||'';return location.origin+location.pathname+(c?'?c='+encodeURIComponent(c)+'&j=1':'?j=1')+'#/shared'};
+const inviteText=p=>`You have been added to "${p.title}" on WriteFlow. Open ${inviteLink()} and sign in with this Google account to see the tasks, comments and files.`;
+function handleInvite(){try{const q=new URLSearchParams(location.search);if(!q.get('c')&&!q.get('j'))return;const c=q.get('c');
+ if(c&&/^[\w.-]+\.apps\.googleusercontent\.com$/.test(c)&&!state.settings.clientId){state.settings.clientId=c;localStorage.setItem(KEY,JSON.stringify(state))}
+ if(q.get('j')){sessionStorage.setItem('wf.invite','1');location.hash='#/shared'}
+ history.replaceState(null,'',location.pathname+location.hash)}catch(e){}}
 function addMem(p,cid,role){const m={cid,role};p.team.push(m);save();shareMember(p,m)}
 const errMsg=e=>{const t=String(e&&e.message||e);try{const j=JSON.parse(t);return(j.error&&j.error.message)||t}catch(x){const m=/"message":\s*"([^"]+)"/.exec(t);return m?m[1]:t}};
 async function shareMember(p,m){const em=emailOf(m.cid);if(!em){toast('Add an email to this person to give Drive access');return}
@@ -1039,7 +1048,7 @@ async function shareMember(p,m){const em=emailOf(m.cid);if(!em){toast('Add an em
  let folder,last;
  try{folder=await projectFolder(p)}catch(e){return shareFail(p,m,em,'',e)}
  for(const note of ['true','false']){for(let t=0;t<2;t++){
-  try{const r=await(await g(DAPI+'/'+folder+'/permissions?supportsAllDrives=true&sendNotificationEmail='+note+'&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em})},acctOf(p))).json();
+  try{const r=await(await g(DAPI+'/'+folder+'/permissions?supportsAllDrives=true&sendNotificationEmail='+note+'&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'user',role:'writer',emailAddress:em,...(note==='true'?{emailMessage:inviteText(p)}:{})})},acctOf(p))).json();
    m.permId=r.id;m.shared=em;p.shared=true;save();toast('Editor access given to '+em);return}
   catch(e){last=e;if(!/"code":\s*5\d\d|Internal Error|backend|rate/i.test(String(e.message)))return shareFail(p,m,em,folder,e);await sleep(1500)}}}
  shareFail(p,m,em,folder,last)}
@@ -1413,7 +1422,7 @@ document.addEventListener('submit',e=>{
  if(f.id==='nt')p.notes=fd.notes;
  p.updated=Date.now();save()});
 
-applyTheme();render();if(window.google)initGIS();resumeSession();
+handleInvite();applyTheme();render();if(window.google)initGIS();resumeSession();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
